@@ -2717,12 +2717,33 @@
         transform: translateY(-5px);
       }
     }
+    /* The name row is a ROW, not a line of text, and that is the whole point.
+       It holds the P# chip, the name, a Prestige badge for a person and a RANK
+       badge for a bot, in that order, inside 90px that clips its own overflow.
+       As one line of text the rank badge was simply the last thing on the line
+       and so the first thing off the edge: measured at 1440px, Cook kept all of
+       its F and Ross all of its E, Magellan kept 11% of its C, and Vancouver,
+       Shackleton and Bougainville showed NOTHING of their A, S and S+ at all.
+       "Some of the bots have no letter" was really "every bot with a name
+       longer than five characters".
+
+       As a flex row the badges are flex:none and the NAME is what gives up the
+       room, so the rank is always on screen and a long name ellipsizes. The
+       full name is still on the pill's own title/tooltip. */
     .pv-seat-name {
       font-size: 12px; font-weight: 800;
       color: #1a4d6e;
       max-width: 90px; text-align: center;
+      display: flex; align-items: center; justify-content: center; gap: 1px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       letter-spacing: .2px;
+    }
+    .pv-seat-name > .pv-seat-plabel,
+    .pv-seat-name > .pv-seat-grade,
+    .pv-seat-name > .cc-pbadge { flex: 0 0 auto; }
+    .pv-seat-name > .pv-seat-nametext {
+      min-width: 0; flex: 0 1 auto;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .pv-seat.active-turn .pv-seat-name { color: #c93030; }
     /* P# seat label chip (P1, P2, …), used for AFK reporting */
@@ -14479,9 +14500,14 @@
     }
     /* The same badge on an in-game seat, where space is tight and it sits on
        the dark board rather than a pale panel. */
+    /* Every pixel this badge does not take is a pixel of the name that stays
+       readable, so in-game it is as tight as a letter can be and still be a
+       badge: no letter-spacing, 3px of air each side, and the gap on the row
+       does the spacing the old margin used to. */
     .pv-seat-grade {
-      min-width: 0; height: 16px; padding: 0 5px; margin-left: 5px;
+      min-width: 0; height: 16px; padding: 0 3px; margin-left: 2px;
       font-size: 10px; border-radius: 5px; vertical-align: middle;
+      letter-spacing: 0;
     }
 
     /* ── NEW CURRENT MODAL ──────────────────────────────────────── */

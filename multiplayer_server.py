@@ -6198,6 +6198,10 @@ class GameRoom:
         # out while the process was down.
         self._turn_clock_seat: Optional[int] = None
         self._turn_clock_deadline: Optional[float] = None
+        # Has the seat on the clock already been given its one fresh budget for
+        # picking a card UP to play it? Cleared every time the clock is armed,
+        # i.e. once per turn and once more for a ★ play-again's extra turn.
+        self._turn_clock_play_grace_used: bool = False
         # Tutorial games rig the human's opening hand so the guided "play an
         # ocean, then two creatures" walkthrough always works. Never set for
         # normal matches. ``tutorial_variant`` selects which rig: None/"" = the
@@ -10140,6 +10144,16 @@ class GameRoom:
                         self._afk_reset_turn_locked()
                         # …and start this turn's clock, if the room runs one.
                         self._arm_turn_clock_locked(seat_index)
+                    elif is_replay_turn:
+                        # A ★ "play again" is ANOTHER TURN at the same seat, and
+                        # the table is told so in those words. The engine spends
+                        # it inside the same engine turn, so the branch above
+                        # cannot see it and the extra turn used to be played out
+                        # on whatever milliseconds the first one had left: at the
+                        # 10s competitive limit, a star earned on second nine was
+                        # a star you could not use. The flag is POPPED, so this
+                        # arms once per granted replay and never once per move.
+                        self._arm_turn_clock_locked(seat_index)
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
@@ -12851,11 +12865,28 @@ class GameRoom:
     def _arm_turn_clock_locked(self, seat_index: int) -> None:
         """Start this seat's clock for the turn that is beginning.
 
-        One clock per TURN, not per move: a player who draws and then plays
-        two cards spends one budget on all of it, which is what "ten seconds a
-        turn" means. Called from the turn-boundary branch of _human_policy, so
-        a ★ play-again turn (a fresh turn for the same player) is armed afresh
-        and a second action inside one turn is not."""
+        One clock per TURN, not per move: a player who draws one card and then
+        the second spends one budget on both, which is what "ten seconds a
+        turn" means.
+
+        A TURN, though, is what the game calls a turn, and the game hands out
+        two of them the player did not plan for:
+
+          • a ★ "play again" says "take another turn" in the banner, the
+            status note and the rulebook, and it is armed afresh here. The
+            engine does NOT start a new engine turn for it (it adds to the
+            same turn's action budget, see pending_replay_actions), so the
+            turn-boundary branch of _human_policy never fires for one and this
+            has to be called for it explicitly, or the extra turn is played
+            out on whatever was left of the first;
+          • picking a card UP to play it, which is a move the clock must not
+            make for you, gets one fresh budget per turn (see
+            reset_turn_clock_for_play).
+
+        Both are bounded: the replay grant is consumed by the engine and the
+        pick-up grace is once per armed clock, so neither can hold a table
+        open indefinitely."""
+        self._turn_clock_play_grace_used = False
         if not self.turn_limit_seconds:
             self._turn_clock_seat = None
             self._turn_clock_deadline = None
@@ -12897,6 +12928,59 @@ class GameRoom:
             "limit": int(self.turn_limit_seconds),
             "deadline_ms": int(self._turn_clock_deadline * 1000),
         }
+
+    def reset_turn_clock_for_play(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """A card has been picked UP to play it: give the turn a fresh budget,
+        once.
+
+        Dragging a card onto a slot is only half of a play. The other half is
+        choosing what to pay with, and it is the half a clock must never do
+        for you: running out mid-payment used to take the two cards the turn
+        owes you and pass, so the card you had already committed went back to
+        your hand unplayed. Committing it now buys a full budget to finish it.
+
+        Once per armed clock (a turn, or a ★ play-again's extra turn), so
+        picking a card up, putting it down and picking it up again cannot hold
+        the table open: the first pick-up of the turn is the one that counts.
+        The deadline only ever moves FORWARD, so this can never shorten a turn
+        that still had more than a full budget left on it."""
+        token = payload.get("seat_token")
+        with self.cond:
+            seat = self._seat_from_token_locked(token if isinstance(token, str) else None)
+            if seat is None:
+                return {"ok": False, "error": "seat token invalid"}
+            if self.phase != "running":
+                return {"ok": False, "error": "game is not running"}
+            if not self.turn_limit_seconds:
+                # No clock in this room: nothing to reset, and not an error.
+                return {"ok": True, "clock": False}
+            # The seat this is being asked FOR. Same rule as submit_action: in
+            # competitive one player owns two hands, so either token may arrive
+            # for whichever of them is on the clock.
+            act_seat_index = seat.index
+            if (self.active_action_seat is not None
+                    and self.active_action_seat != seat.index
+                    and self._competitive_same_owner(seat.index, self.active_action_seat)):
+                act_seat_index = self.active_action_seat
+            if self.active_action_seat != act_seat_index:
+                return {"ok": False, "error": "not your turn"}
+            if self._turn_clock_seat != act_seat_index:
+                return {"ok": False, "error": "no clock running for this seat"}
+            if self._turn_clock_play_grace_used:
+                return {"ok": True, "granted": False,
+                        "deadline_ms": int((self._turn_clock_deadline or 0) * 1000)}
+            self._turn_clock_play_grace_used = True
+            fresh = time.time() + float(self.turn_limit_seconds)
+            self._turn_clock_deadline = max(float(self._turn_clock_deadline or 0), fresh)
+            self._bump_locked()
+            name = seat.claimed_name or seat.label
+            self._record_event(
+                f"{name} (seat {act_seat_index}) picked a card up to play it: "
+                f"the turn gets a fresh {self.turn_limit_seconds}s to finish it."
+            )
+            return {"ok": True, "granted": True,
+                    "deadline_ms": int(self._turn_clock_deadline * 1000),
+                    "limit": int(self.turn_limit_seconds)}
 
     def _afk_reset_turn_locked(self) -> None:
         """Clear all per-turn AFK state and cancel any live challenge.
@@ -17302,6 +17386,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_action(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        # A card picked UP to play it: the turn gets one fresh budget to finish
+        # choosing what to pay with. The clock is the server's, so the browser
+        # has to ask rather than hold its own countdown back.
+        if (len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms"
+                and parts[3] == "turn_clock_play"):
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.reset_turn_clock_for_play(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

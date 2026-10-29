@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-23.1";
+  const APP_BUILD   = "2026-10-29.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -6823,6 +6823,42 @@
     }
   }
 
+  // ── A card picked UP to play it buys the turn a fresh clock ─────
+  // Dragging a card onto a slot is only half a play; choosing what to pay with
+  // is the other half, and it is the half a clock must never make for you. On
+  // a 10-second table the drag alone could eat the turn, and the card you had
+  // already committed went back to your hand unplayed.
+  //
+  // The clock belongs to the SERVER (the browser is handed a deadline, never a
+  // countdown of its own), so this has to ask. The server grants it once per
+  // turn, so picking a card up and putting it back cannot farm time, and it
+  // only ever moves the deadline forward.
+  // Deliberately NOT async: the clock tests lift this function out of this
+  // file by name and run it on its own, and the slicer that does it cuts from
+  // the word `function`, so an `async` prefix would be left behind and its
+  // `await` would not parse.
+  function _turnClockAskForPlay() {
+    try {
+      if (!roomId) return;
+      if (!(Number(_turnClockState().roomLimit) > 0)) return;   // no clock here
+      const token = getSeatToken();
+      if (!token) return;
+      Promise.resolve(apiPost(`/api/rooms/${roomId}/turn_clock_play`,
+                              { seat_token: token }, { timeoutMs: 6000 }))
+        .then((r) => {
+          const ms = Number(r && r.ok && r.data && r.data.deadline_ms);
+          // Paint the new deadline at once rather than waiting for the next
+          // poll: the bar is read against serverNowMs(), the same clock this
+          // number is in, so it drops straight into the running frame loop.
+          if (Number.isFinite(ms) && ms > 0) {
+            const s = _turnClockState();
+            if (ms > s.deadline) s.deadline = ms;
+          }
+        })
+        .catch(() => {});
+    } catch (_) {}
+  }
+
   function enterPaymentMode(action) {
     pendingPayAction = action;
     selectedPayment.clear();
@@ -6832,6 +6868,8 @@
       try {
         showToast(`${action.face_name || "This card"} costs ${cost} card${cost === 1 ? "" : "s"} to play. Choose payment cards.`, "info");
       } catch (_) {}
+      // Fire and forget: the play is staged either way, this only buys time.
+      try { _turnClockAskForPlay(); } catch (_) {}
     }
     document.getElementById("pv-hand")?.classList.add("payment-active");
     _handRenderKey = "";
@@ -11451,6 +11489,11 @@
       plabel.className = "pv-seat-plabel";
       plabel.textContent = `P${p.index + 1}`;
       const nmText = document.createElement("span");
+      // The one child of the name row that is allowed to run out of room: the
+      // P# chip, the rank badge and the Prestige badge beside it are all
+      // flex:none, so a long name ellipsizes instead of pushing the rank off
+      // the edge of the pill (see .pv-seat-nametext in preview.css).
+      nmText.className = "pv-seat-nametext";
       nmText.textContent = p.name || `P${p.index + 1}`;
       // In-game seats know a display NAME, not a uid, the Prestige sweep
       // resolves either. Seats sit on the dark board, so the readability plate
@@ -11459,7 +11502,16 @@
         nmText.setAttribute("data-cc-pname", p.name);
         nmText.setAttribute("data-cc-surface", "dark");
       }
-      nm.appendChild(plabel);
+      // The P# chip exists for ONE job: reporting a player AFK by typing "P3
+      // is AFK". A bot can never be reported, because only the seat the game
+      // is waiting on can be and a bot is never that seat (active_action_seat
+      // is None for the whole of a bot's turn). So on a bot's pill the chip is
+      // dead weight sitting in the 90px the rank badge and the name have to
+      // share, and it told you to do something impossible in its tooltip. Its
+      // room goes to the name instead, which is what lets "Shackleton" stay
+      // "Shackleton" rather than "Shac…" now that the badge cannot be pushed
+      // off the edge.
+      if (!_seatIsBot) nm.appendChild(plabel);
       nm.appendChild(nmText);
       // A bot wears its tier at the table, not only in the lobby. In a Head
       // to Head the game starts without a lobby at all, so this is the only
@@ -11479,9 +11531,15 @@
           gb.classList.add("pv-seat-grade");
           gb.title = `This bot plays at rank ${bmTierLetter(_tierKey)}`;
           nm.appendChild(gb);
+          // The full name, which is the part that may now be an ellipsis, and
+          // the rank in words. A bot is not reportable, so it is NOT offered
+          // the AFK line the pill used to give every seat.
+          nm.title = `${p.name || `Player ${p.index + 1}`}, a bot playing at rank ${bmTierLetter(_tierKey)}`;
         }
       }
-      nm.title = `${p.name || `Player ${p.index + 1}`}, report by typing "P${p.index + 1} is AFK"`;
+      if (!nm.title) {
+        nm.title = `${p.name || `Player ${p.index + 1}`}, report by typing "P${p.index + 1} is AFK"`;
+      }
 
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
@@ -22002,6 +22060,11 @@
     const room = (payload && payload.room) || null;
     const roomLimit = Number(room && room.turn_limit_seconds) || 0;
     const inPlay = !!room && String(room.phase || "") === "running";
+    // Kept on the state object so the rest of the app can ask "is this table
+    // on a clock at all?" without re-reading the payload: picking a card up to
+    // play it asks the server for a fresh budget, and only a room with a clock
+    // should spend a request on that.
+    s.roomLimit = roomLimit;
     const t = payload && payload.turn_timer;
     const deadline = Number(t && t.deadline_ms);
     if (!t || !Number.isFinite(deadline) || deadline <= 0) {

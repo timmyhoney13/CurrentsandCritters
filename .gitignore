@@ -87,6 +87,10 @@
 # wears the Head to Head animal it stands on, on the seat the client draws.
 !test_bot_names.py
 !test_bot_match.js
+# And that the rank badge is really ON SCREEN and not merely in the DOM:
+# the seat's name row clips, so a long bot name used to push the letter
+# clean off the edge of the pill.
+!test_bot_rank_badge.js
 !test_squid_taunt.js
 !calibrate_bots.py
 !bot_evolve.py

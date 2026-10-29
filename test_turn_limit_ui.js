@@ -123,6 +123,33 @@ check(/if \(_isTutGame\) turnLimitSeconds = 0;/.test(APP),
 check(/turn_limit_seconds = 0 if tutorial else/.test(SRV),
       "and the server refuses to put a tutorial room on one");
 
+// ── The two turns the player did not plan for ──────────────────────────────
+// One clock per TURN, and the game hands out two turns nobody chose: a ★
+// "play again" (another turn at the same seat, which the ENGINE spends inside
+// the same engine turn, so the turn-boundary arm never fires for it) and
+// picking a card up to play it (half a play, where the other half is the one
+// a clock must never make for you). test_turn_limit.py measures both on a
+// live room; these two are the wiring that has to agree across the wire.
+console.log("\nThe two turns that get a clock of their own");
+
+check(/elif is_replay_turn:\s*\n\s*#/.test(SRV) &&
+      /elif is_replay_turn:[\s\S]{0,900}?_arm_turn_clock_locked\(seat_index\)/.test(SRV),
+      "a ★ play again arms the clock afresh, where the turn boundary cannot");
+check(/def reset_turn_clock_for_play/.test(SRV),
+      "the server has a way to give one fresh budget to a staged play");
+check(/self\._turn_clock_play_grace_used = False[\s\S]{0,400}?def _turn_clock_deadline_for/.test(
+        SRV.slice(SRV.indexOf("def _arm_turn_clock_locked"))),
+      "…and arming the clock hands that one budget back, so it is once a turn");
+check(/parts\[3\] == "turn_clock_play"/.test(SRV),
+      "it is reachable over the wire");
+check(/\/turn_clock_play`/.test(APP),
+      "and the browser asks for it at the same address");
+check(/_turnClockAskForPlay\(\)/.test(APP) &&
+      /function _turnClockAskForPlay/.test(APP),
+      "the ask is made when a card is picked up to be paid for");
+check(/Number\(_turnClockState\(\)\.roomLimit\) > 0/.test(APP),
+      "a table with no clock spends no request on it");
+
 // ── Where the bar lives, and how big its passenger is ──────────────────────
 console.log("\nWhere the clock sits, and how big the critter is");
 
@@ -185,6 +212,7 @@ if (!CHROME) {
   const SLICES = [
     "turnLimitLabel", "_ncFillTurnLimit", "_ncTurnLimitNote",
     "_turnClockState", "_turnClockSlug", "_turnClockShow", "_turnClockApply", "_turnClockFrame",
+    "_turnClockAskForPlay",
   ].map(n => {
     const c = sliceFn(APP, n);
     if (!c) { console.error("FAIL: could not find function " + n + "() in preview-app.js"); process.exit(1); }
@@ -236,6 +264,16 @@ function updateBottomDockOffset() {}
 function _avSrc(u) { return String(u).split("/avatars/").join("avatars/"); }
 var FAKE_NOW = 0;
 function serverNowMs() { return FAKE_NOW; }
+// Picking a card up to play it asks the server for a fresh budget. Stand in
+// for the three module-level things that ask does it with, and keep the calls
+// so the page can say whether one was really made.
+var ASKS = [];
+var roomId = "ABCDE";
+function getSeatToken() { return "seat-token-1"; }
+function apiPost(path, body) {
+  ASKS.push({ path: path, body: body });
+  return Promise.resolve({ ok: true, data: { deadline_ms: FAKE_NOW + 60000 } });
+}
 // The frames are driven by hand so the clock can be read at exact moments.
 var _rafId = 0;
 window.requestAnimationFrame = function () { return ++_rafId; };
@@ -348,6 +386,31 @@ want(a10.cx - a0.cx > a0.trackW * 0.9, "he barely moves across the turn");
 // "Do not make him too big": he is a fraction of the strip he is swimming in.
 want(a0.ch > 0 && a0.ch <= 24, "the critter is " + round(a0.ch) + "px tall");
 want(a0.cw <= a0.trackW * 0.1, "the critter is wider than a tenth of his own bar");
+
+// ── Picking a card up asks for a fresh budget ─────────────────────────────
+// Dropping a card on a slot stages the play; paying for it is the rest of the
+// move, and the clock must not make that one for you. The browser cannot hold
+// its own countdown back (the deadline is the server's), so it asks. A table
+// with no clock must not spend a request on it.
+var LIVE = { room: ROOM, seats: SEATS,
+             turn_timer: { seat: 1, limit: LIMIT, deadline_ms: FAKE_NOW + LIMIT * 1000 } };
+_turnClockApply(LIVE);
+ASKS.length = 0;
+_turnClockAskForPlay();
+want(ASKS.length === 1, "picking a card up asked nobody for the time to play it");
+// A plain compare, not a regex: this file is a template literal, so an
+// escaped slash inside one would reach the page as a bare slash and end the
+// pattern early.
+want(ASKS.length > 0 && ASKS[0].path === "/api/rooms/ABCDE/turn_clock_play",
+     "it asked at the wrong address: " + (ASKS[0] || {}).path);
+want(ASKS.length > 0 && ASKS[0].body && ASKS[0].body.seat_token === "seat-token-1",
+     "it asked without saying which seat was asking");
+
+_turnClockApply({ room: { phase: "running", turn_limit_seconds: 0 }, seats: SEATS, turn_timer: null });
+ASKS.length = 0;
+_turnClockAskForPlay();
+want(ASKS.length === 0, "a table with no clock still spent a request on the turn clock");
+_turnClockApply(LIVE);          // back on the clock for the checks below
 
 // Between two turns, and all through a bot's turn, nobody is on the clock.
 // The strip must HOLD ITS PLACE: a 27px row that comes and goes at every

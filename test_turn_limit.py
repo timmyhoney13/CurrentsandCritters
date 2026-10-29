@@ -187,13 +187,16 @@ class TestTheClockMovesTheGameOn(unittest.TestCase):
         mp.ROOMS.rooms.pop("TLRUN", None)
         cls.room = mp.GameRoom("TLRUN", "Otter", total_players=2, human_players=2,
                                ai_players=0, turn_limit_seconds=cls.LIMIT)
-        cls.tokens = {0: cls.room.host_seat().token}
+        host_token = cls.room.host_seat().token
         res = cls.room.claim_seat("Heron", 1, None)
         assert res["ok"], res
-        cls.tokens[1] = res["seat_token"]
         cls.room.ai_speed = "fast"
-        started = cls.room.start_game(cls.room.host_control_token, cls.tokens[0], mp.CARD_DB)
+        started = cls.room.start_game(cls.room.host_control_token, host_token, mp.CARD_DB)
         assert started["ok"], started
+        # Read off the seats, after the start: starting a game can move a
+        # player to another chair, so a token claimed at index 1 is not
+        # necessarily seat 1's token once the game is running.
+        cls.tokens = {s.index: s.token for s in cls.room.seats if s.kind == "human"}
 
     @classmethod
     def tearDownClass(cls):
@@ -265,6 +268,193 @@ class TestTheClockMovesTheGameOn(unittest.TestCase):
         self.assertTrue(hands, "no hands were published at all")
         self.assertTrue(all(n > 0 for n in hands.values()),
                         "a clocked-out player was left with no cards: %s" % hands)
+
+
+class TestTheTwoFreshBudgets(unittest.TestCase):
+    """One clock per TURN is the rule, and the game hands out two turns the
+    player did not plan for. Both get a clock of their own, and both are
+    bounded so neither can hold a table open.
+
+      1. A ★ "play again" says "take another turn" in the banner and in the
+         status note. The engine does NOT start a new engine turn for it: it
+         adds to the SAME turn's action budget, so the turn-boundary branch
+         that arms the clock never fires for one. Left alone, a star earned on
+         second nine of a ten-second turn was a star you could not use.
+      2. Picking a card UP to play it. Dropping it on a slot is half a play;
+         choosing what to pay with is the other half, and it is the half a
+         clock must never make for you.
+
+    Both are measured here on a REAL room with a REAL match thread, because
+    the clock is only ever armed from inside the live policy loop.
+    """
+
+    LIMIT = 30          # long enough that nothing is ever forced mid-test
+
+    @classmethod
+    def setUpClass(cls):
+        mp.ROOMS.rooms.pop("TLFRESH", None)
+        cls.room = mp.GameRoom("TLFRESH", "Otter", total_players=2, human_players=2,
+                               ai_players=0, turn_limit_seconds=cls.LIMIT)
+        host_token = cls.room.host_seat().token
+        res = cls.room.claim_seat("Heron", 1, None)
+        assert res["ok"], res
+        cls.room.ai_speed = "fast"
+        started = cls.room.start_game(cls.room.host_control_token, host_token, mp.CARD_DB)
+        assert started["ok"], started
+        # AFTER the start, and off the seats themselves. Starting a game can
+        # move a player to another chair (the casual order is shuffled every
+        # game now), so "the host holds seat 0" is only true about half the
+        # time, and a token read before the start belongs to whichever seat
+        # that player ended up in, not to the index it was claimed at.
+        cls.tokens = {s.index: s.token for s in cls.room.seats if s.kind == "human"}
+        assert len(cls.tokens) == 2, cls.tokens
+
+    @classmethod
+    def tearDownClass(cls):
+        with cls.room.cond:
+            cls.room.phase = "ended"
+            cls.room.cond.notify_all()
+        mp.ROOMS.rooms.pop("TLFRESH", None)
+
+    @staticmethod
+    def _wait_for_active_seat(room, timeout=20.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with room.cond:
+                if (room.active_action_seat is not None
+                        and room.legal_actions_by_seat.get(room.active_action_seat)):
+                    return room.active_action_seat
+                if room.phase != "running":
+                    return None
+            time.sleep(0.01)
+        raise AssertionError("no seat became active within %.0fs" % timeout)
+
+    def _engine_player_for_seat(self, seat_index):
+        """The live engine's PlayerState for a seat. The casual turn order is
+        shuffled, so game index and seat index are not the same number."""
+        with self.room.cond:
+            gs = getattr(self.room, "_live_gs", None)
+            game_to_seat = dict(getattr(self.room, "_comp_game_to_seat", {}) or {})
+        self.assertIsNotNone(gs, "the match thread has published no engine state")
+        for game_idx, player in enumerate(gs.players):
+            if game_to_seat.get(game_idx, game_idx) == seat_index:
+                return player
+        raise AssertionError("no engine player maps back to seat %s" % seat_index)
+
+    def test_01_a_star_play_again_is_given_a_turns_worth_of_clock(self):
+        seat = self._wait_for_active_seat(self.room)
+        self.assertIsNotNone(seat)
+        with self.room.cond:
+            before = float(self.room._turn_clock_deadline)
+            turn_before = self.room.last_turn_number
+        # Spend most of the turn, the way a player who thought about it would.
+        with self.room.cond:
+            self.room._turn_clock_deadline = time.time() + 1.0
+            spent = float(self.room._turn_clock_deadline)
+        self.assertLess(spent, before, "the test did not actually spend the turn")
+        # The engine grants the extra action by setting this flag; the policy
+        # pops it on its next pass, which is the moment under test.
+        self._engine_player_for_seat(seat).flags["_replay_turn_next"] = True
+        # Act, so the policy loop comes round again INSIDE the same turn.
+        payload = self.room.legal_actions_by_seat.get(seat) or {}
+        acts = payload.get("actions") or []
+        idx = next((i for i, a in enumerate(acts) if a.get("kind") == "draw"), None)
+        self.assertIsNotNone(idx, "no draw on offer to take: %s" % [a.get("kind") for a in acts])
+        out = self.room.submit_action({"seat_token": self.tokens[seat], "action_index": idx,
+                                       "kind": "draw", "request_id": "replay-1"})
+        self.assertTrue(out.get("ok"), out)
+        # Watch until either the clock moves (the extra turn was given its own
+        # budget) or the turn number does (it was never given one and the turn
+        # simply ended). Whichever happens first is the answer.
+        # The two are read together, under the lock, because the question is
+        # precisely whether the clock was given a fresh budget WHILE THIS TURN
+        # was still running. A deadline that only moves once the turn number
+        # does is the next turn's clock, which proves nothing.
+        stop = time.monotonic() + 5
+        fresh_inside_the_turn = False
+        after, turn_now = spent, turn_before
+        while time.monotonic() < stop:
+            with self.room.cond:
+                after = float(self.room._turn_clock_deadline or 0)
+                turn_now = self.room.last_turn_number
+            if turn_now != turn_before:
+                break                       # the turn ended first
+            if after > spent + 1.0:
+                fresh_inside_the_turn = True
+                break
+            time.sleep(0.01)
+        self.assertTrue(
+            fresh_inside_the_turn,
+            "a ★ play again was played out on whatever was left of the turn before "
+            "it: the clock never re-armed inside the turn "
+            "(deadline %.2f -> %.2f, turn %s -> %s)"
+            % (spent, after, turn_before, turn_now))
+        self.assertLessEqual(after - time.time(), self.LIMIT + 0.5,
+                             "the extra turn got MORE than one turn's worth of clock")
+
+    def test_02_picking_a_card_up_buys_one_fresh_budget(self):
+        seat = self._wait_for_active_seat(self.room)
+        self.assertIsNotNone(seat)
+        with self.room.cond:
+            self.room._turn_clock_deadline = time.time() + 1.0
+            self.room._turn_clock_play_grace_used = False
+            spent = float(self.room._turn_clock_deadline)
+        out = self.room.reset_turn_clock_for_play({"seat_token": self.tokens[seat]})
+        self.assertTrue(out.get("ok"), out)
+        self.assertTrue(out.get("granted"), "the first pick-up of the turn was refused")
+        with self.room.cond:
+            after = float(self.room._turn_clock_deadline)
+        self.assertGreater(after, spent + 1.0, "the clock was not given a fresh budget")
+        self.assertLessEqual(after - time.time(), self.LIMIT + 0.5, "it got more than a turn")
+        # …and only once, so picking a card up and putting it down again cannot
+        # hold the table open.
+        again = self.room.reset_turn_clock_for_play({"seat_token": self.tokens[seat]})
+        self.assertTrue(again.get("ok"), again)
+        self.assertFalse(again.get("granted"), "a second pick-up bought a second budget")
+        with self.room.cond:
+            after2 = float(self.room._turn_clock_deadline)
+        self.assertAlmostEqual(after, after2, places=3,
+                               msg="the refused second pick-up still moved the clock")
+
+    def test_03_it_never_shortens_a_turn(self):
+        seat = self._wait_for_active_seat(self.room)
+        with self.room.cond:
+            far = time.time() + self.LIMIT + 20
+            self.room._turn_clock_deadline = far
+            self.room._turn_clock_play_grace_used = False
+        self.room.reset_turn_clock_for_play({"seat_token": self.tokens[seat]})
+        with self.room.cond:
+            now = float(self.room._turn_clock_deadline)
+        self.assertAlmostEqual(
+            now, far, places=3,
+            msg="picking a card up took time OFF a turn that had more left")
+
+    def test_04_only_the_seat_on_the_clock_can_ask(self):
+        seat = self._wait_for_active_seat(self.room)
+        other = 1 - seat
+        out = self.room.reset_turn_clock_for_play({"seat_token": self.tokens[other]})
+        self.assertFalse(out.get("ok"), out)
+        self.assertIn("not your turn", str(out.get("error")))
+        self.assertFalse(
+            self.room.reset_turn_clock_for_play({"seat_token": "nonsense"}).get("ok"))
+
+    def test_05_a_room_off_the_clock_simply_says_so(self):
+        mp.ROOMS.rooms.pop("TLNOCLK", None)
+        room = mp.GameRoom("TLNOCLK", "Otter", total_players=2, human_players=2, ai_players=0)
+        try:
+            room.phase = "running"
+            out = room.reset_turn_clock_for_play({"seat_token": room.host_seat().token})
+            self.assertTrue(out.get("ok"), out)
+            self.assertFalse(out.get("clock"), "a room with no clock claimed to have one")
+        finally:
+            mp.ROOMS.rooms.pop("TLNOCLK", None)
+
+    def test_06_arming_the_clock_hands_the_pick_up_grace_back(self):
+        # A new turn, and a ★ play-again's extra turn, each get their own.
+        with self.room.cond:
+            self.room._turn_clock_play_grace_used = True
+            self.room._arm_turn_clock_locked(0)
+            self.assertFalse(self.room._turn_clock_play_grace_used)
 
 
 if __name__ == "__main__":
