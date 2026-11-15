@@ -26547,7 +26547,7 @@
       "I want my Critter Coins delivered as soon as my payment is confirmed, and I "
       + "understand that once they are delivered I lose my right to cancel this purchase.";
 
-    function ccPurchaseConsent(productLabel, onAgree) {
+    function ccPurchaseConsent(productLabel, onAgree, note) {
       if (_ccPurchaseAckOpen) return;
       _ccPurchaseAckOpen = true;
 
@@ -26560,6 +26560,7 @@
           '<div class="cc-pc-card">'
         +   '<h2 id="cc-pc-h">Before you pay</h2>'
         +   '<p class="cc-pc-what">You are buying: <strong>' + escapeHtml(String(productLabel || "Critter Coins")) + '</strong></p>'
+        +   (note ? '<p class="cc-pc-what cc-pc-note">' + escapeHtml(String(note)) + '</p>' : '')
         +   '<label class="cc-pc-check" for="cc-pc-ack">'
         +     '<input type="checkbox" id="cc-pc-ack" />'
         +     '<span>' + escapeHtml(CC_PURCHASE_ACK_TEXT) + '</span>'
@@ -34444,12 +34445,14 @@
         cues();
       })();
 
-      // ── Store: Stripe-hosted checkout ───────────────────────────────
+      // ── Store: Squarespace-hosted checkout ──────────────────────────
       // We NEVER collect card details on our site and never build a fake
       // checkout. Every "Buy"/"Become" button hands the player off to a
-      // Stripe-hosted Payment Link. After Stripe confirms payment, our Stripe
-      // webhook is what actually credits Critter Coins / grants the tier to the
-      // account named by client_reference_id (set below).
+      // product on the Squarespace shop (www.beardedsealstudios.com/shop).
+      // The server polls Squarespace for paid orders (squarespace_store.py) and
+      // credits the game account whose VERIFIED sign-in email matches the
+      // checkout email, which is why the consent dialog names that email.
+      // Anyone it cannot match is mailed a redemption code instead.
       (function initStore() {
 
         // Attach the signed-in Google account to a Payment Link so Stripe (and
@@ -34460,6 +34463,9 @@
         function _phstStripeUrl(baseUrl) {
           try {
             const u = new URL(baseUrl);
+            // Only a Stripe Payment Link understands these two parameters.
+            // Squarespace ignores them, so its URL is left exactly as it is.
+            if (u.hostname !== "buy.stripe.com") return u.toString();
             const uid = _authUser && _authUser.uid;
             const email = _authUser && _authUser.email;
             if (uid) u.searchParams.set("client_reference_id", uid);
@@ -34507,10 +34513,18 @@
           // Recorded server-side BEFORE the buyer leaves, so it is
           // necessarily before delivery. ccPurchaseConsent only calls back
           // once the server has confirmed it kept the record.
+          // A username-and-password account signs in with a synthetic
+          // address nobody can type at checkout, so it is not offered as one.
+          const rawEmail = String((_authUser && _authUser.email) || "");
+          const email = (typeof CC_LOGIN_DOMAIN === "string"
+                         && rawEmail.toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN)) ? "" : rawEmail;
+          const note = email
+            ? "At checkout, enter " + email + ". That email is how your purchase finds this account."
+            : "After paying, you will be emailed a code. Enter it in the Friends tab to add your purchase to this account.";
           ccPurchaseConsent(productLabel, () => {
             _phstRememberReturn();
             window.location.href = _phstStripeUrl(baseUrl);
-          });
+          }, note);
         }
 
         window._phstGoToStripe = _phstGoToStripe;
@@ -34559,10 +34573,14 @@
       const PHST_TIERS_KICKSTARTER_ONLY = true;
 
       // ═══════════════════════════════════════════════════════════════════
-      //  STRIPE PAYMENT LINKS
-      //  LIVE MODE. Every URL below is a LIVE Stripe Payment Link and takes
-      //  REAL money. Do NOT swap these for a custom/fake checkout, only ever
-      //  hand off to Stripe-hosted links.
+      //  SQUARESPACE SHOP PRODUCTS  (www.beardedsealstudios.com/shop)
+      //  LIVE. Every URL below is a real product on the Squarespace shop and
+      //  takes REAL money. Do NOT swap these for a custom/fake checkout.
+      //
+      //  The Squarespace side grants by the product's SKU (SKU_REWARDS in
+      //  squarespace_store.py), so renaming a product on the shop is safe but
+      //  changing its SKU or price is not. The paragraph below is the original
+      //  Stripe rule; it still applies to any Stripe link that comes back.
       //
       //  A LINK IS IDENTIFIED BY ITS PRICE, NOT ITS URL. The webhook has no
       //  table of these URLs, it reads `amount_total` off the completed
@@ -34576,10 +34594,10 @@
 
       // 1) Critter Coins packs, $1 = 1,000 coins, bigger packs add a bonus.
       const PHST_COIN_PACKS = [
-        { usd: 1,  coins: 1000,  bonus: 0,             link: "https://buy.stripe.com/fZufZi6En1FqgIV38eds400" },
-        { usd: 5,  coins: 5250,  bonus: 5,             link: "https://buy.stripe.com/dRm9AU6En1Fq64h6kqds401" },
-        { usd: 10, coins: 11500, bonus: 15,            link: "https://buy.stripe.com/5kQ00k2o75VGeANaAGds402" },
-        { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://buy.stripe.com/4gMdRaaUDbg078l7ouds403" },
+        { usd: 1,  coins: 1000,  bonus: 0,             link: "https://www.beardedsealstudios.com/shop/p/critter-coins-1000" },
+        { usd: 5,  coins: 5250,  bonus: 5,             link: "https://www.beardedsealstudios.com/shop/p/critter-coins-5250" },
+        { usd: 10, coins: 11500, bonus: 15,            link: "https://www.beardedsealstudios.com/shop/p/critter-coins-11500" },
+        { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://www.beardedsealstudios.com/shop/p/critter-coins-25000" },
       ];
 
       // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
@@ -34590,7 +34608,7 @@
       const PHST_SUPPORTER_TIERS = [
         {
           name: "Wave Warrior", usd: 15, coins: 7000,
-          link: "https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404",
+          link: "https://www.beardedsealstudios.com/shop/p/wave-warrior-supporter-tier",
           perks: [
             "Supporter email updates",
             "Founder Supporter number",
@@ -34604,7 +34622,7 @@
         },
         {
           name: "Ocean Ally", usd: 35, coins: 15000, popular: true,
-          link: "https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405",
+          link: "https://www.beardedsealstudios.com/shop/p/ocean-ally-supporter-tier",
           perks: [
             "Supporter email updates",
             "Founder Supporter number",
@@ -34620,7 +34638,7 @@
         },
         {
           name: "Tide Turner", usd: 50, coins: 30000,
-          link: "https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406",
+          link: "https://www.beardedsealstudios.com/shop/p/tide-turner-supporter-tier",
           perks: [
             "Supporter email updates",
             "Founder Supporter number",
@@ -34647,7 +34665,7 @@
         // gain a button (see the custom-amount card below).
         {
           name: "Tsunami", usd: 100, coins: 75000, best: true,
-          link: "https://buy.stripe.com/eVq28s0fZdo8akxeQWds407",
+          link: "https://www.beardedsealstudios.com/shop/p/tsunami-supporter-tier",
           perks: [
             "Supporter email updates",
             "Founder Supporter number",

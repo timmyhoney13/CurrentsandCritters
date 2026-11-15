@@ -67,6 +67,19 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      # ── Squarespace shop (squarespace_store.py) ───────────────────────────
+      # The Store's buy buttons open products on www.beardedsealstudios.com/shop.
+      # The server polls the Squarespace Orders API and delivers each paid
+      # Critter Coins pack / Supporter Tier to the game account with the same
+      # VERIFIED email (anyone else is mailed a redemption code).
+      #   SQUARESPACE_API_KEY: Developer API key from the MAIN site
+      #     (Settings → Developer Tools → Developer API Keys → Generate Key,
+      #     permission: Orders, read only). REQUIRED: without it nothing bought
+      #     on the shop reaches a game account.
+      #   SQUARESPACE_POLL_SECONDS (default 60), SQUARESPACE_LOOKBACK_DAYS
+      #   (default 30, first poll only), SQUARESPACE_ALLOW_TEST_ORDERS ("1").
+      - key: SQUARESPACE_API_KEY
+        sync: false
       # ── Purchase redemption codes (redeem_codes.py) ────────────────────
       # A donation made on the MARKETING SITE carries no Firebase uid, so the
       # webhook has no account to credit. The buyer is emailed a code instead

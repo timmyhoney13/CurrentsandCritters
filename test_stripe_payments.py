@@ -749,7 +749,11 @@ def _live(html: str) -> str:
 
 
 class TestLivePaymentLinks(unittest.TestCase):
-    """Every Buy button points at the RIGHT live Stripe Payment Link.
+    """Every Buy button points at the RIGHT live checkout.
+
+    The checkouts are now products on the Squarespace shop, granted by SKU in
+    squarespace_store.SKU_REWARDS (see TestSquarespaceShopSkus below). The
+    original Stripe reasoning still holds for the price tables:
 
     The webhook never sees these URLs, it grants by `amount_total`, so a
     button wired to the wrong link is invisible until a real customer is charged
@@ -758,14 +762,14 @@ class TestLivePaymentLinks(unittest.TestCase):
 
     # product key → (live Payment Link, price in cents)
     LINKS = {
-        "coins_1000":   ("https://buy.stripe.com/fZufZi6En1FqgIV38eds400",  100),
-        "coins_5250":   ("https://buy.stripe.com/dRm9AU6En1Fq64h6kqds401",  500),
-        "coins_11500":  ("https://buy.stripe.com/5kQ00k2o75VGeANaAGds402", 1000),
-        "coins_25000":  ("https://buy.stripe.com/4gMdRaaUDbg078l7ouds403", 2000),
-        "wave-warrior": ("https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404", 1500),
-        "ocean-ally":   ("https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405", 3500),
-        "tide-turner":  ("https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406", 5000),
-        "tsunami":      ("https://buy.stripe.com/eVq28s0fZdo8akxeQWds407", 10000),
+        "coins_1000":   ("https://www.beardedsealstudios.com/shop/p/critter-coins-1000",  100),
+        "coins_5250":   ("https://www.beardedsealstudios.com/shop/p/critter-coins-5250",  500),
+        "coins_11500":  ("https://www.beardedsealstudios.com/shop/p/critter-coins-11500", 1000),
+        "coins_25000":  ("https://www.beardedsealstudios.com/shop/p/critter-coins-25000", 2000),
+        "wave-warrior": ("https://www.beardedsealstudios.com/shop/p/wave-warrior-supporter-tier", 1500),
+        "ocean-ally":   ("https://www.beardedsealstudios.com/shop/p/ocean-ally-supporter-tier", 3500),
+        "tide-turner":  ("https://www.beardedsealstudios.com/shop/p/tide-turner-supporter-tier", 5000),
+        "tsunami":      ("https://www.beardedsealstudios.com/shop/p/tsunami-supporter-tier", 10000),
     }
 
     def setUp(self):
@@ -849,6 +853,33 @@ class TestLivePaymentLinks(unittest.TestCase):
                               f"index.html offers a LIVE Become-a-{label} button")
         self.assertNotIn("buy.stripe.com", home_live,
                          "a Payment Link escaped its comment on index.html")
+
+    # product key → the SKU that product carries on the Squarespace shop
+    SKUS = {
+        "coins_1000":   "CC-COINS-1000",
+        "coins_5250":   "CC-COINS-5250",
+        "coins_11500":  "CC-COINS-11500",
+        "coins_25000":  "CC-COINS-25000",
+        "wave-warrior": "CC-TIER-WAVE-WARRIOR",
+        "ocean-ally":   "CC-TIER-OCEAN-ALLY",
+        "tide-turner":  "CC-TIER-TIDE-TURNER",
+        "tsunami":      "CC-TIER-TSUNAMI",
+    }
+
+    def test_every_squarespace_sku_grants_what_its_card_sells(self):
+        """The shop grants by SKU, so each SKU must pay out the same product,
+        at the same price, as the card whose button opens it."""
+        import squarespace_store as sq
+        self.assertEqual(set(sq.SKU_REWARDS), set(self.SKUS.values()))
+        for key, sku in self.SKUS.items():
+            kind, value, cents = sq.SKU_REWARDS[sku]
+            self.assertEqual(cents, self.LINKS[key][1], f"{sku} price drifted")
+            if key.startswith("coins_"):
+                self.assertEqual((kind, value), ("coins", int(key.split("_")[1])))
+                self.assertEqual(ms.COIN_PACKS_BY_CENTS[cents], value)
+            else:
+                self.assertEqual((kind, value), ("tier", key))
+                self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[cents], value)
 
     def test_every_live_link_resolves_to_a_known_product(self):
         """Reverse check: each price maps back through the real webhook code."""

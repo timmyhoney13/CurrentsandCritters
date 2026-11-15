@@ -46,6 +46,7 @@ import discord_server
 import level_pass_server
 import critter_pass_server
 import redeem_codes
+import squarespace_store
 import referral_server
 import welcome_server
 import account_email
@@ -1996,6 +1997,34 @@ def _is_affirmative(val: str) -> bool:
     return v in ("true", "1", "show", "public", "publicly", "sure", "ok", "okay")
 
 
+def _find_uid_by_verified_email(email: str) -> Optional[str]:
+    """The game account whose VERIFIED sign-in email is `email`, or None.
+
+    Used for Squarespace shop purchases, where the checkout email is the only
+    thing tying a buyer to a player. Only a verified address counts: an
+    unverified one could have been typed by anyone, and matching it would hand
+    a stranger's purchase to whoever registered that address first. No match
+    returns None (the buyer is mailed a redemption code instead); a lookup that
+    FAILS raises, so the order is retried rather than filed as a guest."""
+    addr = str(email or "").strip()
+    if not addr or "@" not in addr or len(addr) > 320:
+        return None
+    db = _get_firestore()                 # also initialises the firebase_admin app
+    if db is None:
+        raise RuntimeError("Firebase Admin not configured")
+    from firebase_admin import auth as fb_auth
+    try:
+        rec = fb_auth.get_user_by_email(addr)
+    except fb_auth.UserNotFoundError:
+        return None
+    if not getattr(rec, "email_verified", False):
+        return None
+    # A sign-in with no game profile yet is not an account to credit: the
+    # buyer's code still reaches them, and redeeming it later pays in full.
+    snap = db.collection("users").document(rec.uid).get()
+    return rec.uid if snap.exists else None
+
+
 def _find_uid_by_username(db, username_lower: str) -> Optional[str]:
     """Find a game account by its UNIQUE username (usernames are unique by
     construction; see _claim_username). Returns the uid or None.
@@ -2288,6 +2317,12 @@ def _process_stripe_checkout(event: dict) -> str:
     def _apply(txn) -> str:
         # ── ALL reads first (Firestore requires reads before any writes) ─────
         pay_snap  = payment_ref.get(transaction=txn)
+        # The event marker is checked too, not only written: a Squarespace order
+        # is polled again and again under one stable event id, and the buyer may
+        # match a DIFFERENT supporter doc the second time (an account created in
+        # between), which would put payment_ref somewhere new. The event id is
+        # the same either way, so this is what makes that a no-op.
+        ev_snap   = ev_ref.get(transaction=txn)
         sup_snap  = supporter_ref.get(transaction=txn)
         user_snap = user_ref.get(transaction=txn) if user_ref is not None else None
         existing_user = (user_snap.to_dict() if user_snap is not None else None) or {}
@@ -2296,7 +2331,7 @@ def _process_stripe_checkout(event: dict) -> str:
 
         # (Duplicate-payment prevention) This Stripe session is already counted →
         # no-op. Idempotent under Stripe's retries / duplicate deliveries.
-        if pay_snap.exists:
+        if pay_snap.exists or ev_snap.exists:
             return "duplicate"
 
         prev = sup_snap.to_dict() or {}
@@ -16198,6 +16233,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         # Admin review list (pending by default; ?filter=all for everything).
         # Protected by ADMIN_RECOVERY_KEY, like the other /api/admin/* endpoints.
+        # Is the Squarespace shop poller running, and did its last poll work?
+        # Counts and timestamps only, never an order, an email or the key.
+        if parsed.path == "/api/admin/squarespace-status":
+            qs_q = parse_qs(parsed.query)
+            if not _admin_key_ok(qs_q.get("admin_key", [None])[0] or "",
+                                 os.environ.get("ADMIN_RECOVERY_KEY", "").strip()):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            self._send_json({"ok": True, **squarespace_store.status()})
+            return
+
         if parsed.path == "/api/admin/supporters":
             qs_a = parse_qs(parsed.query)
             supplied_key = qs_a.get("admin_key", [None])[0] or ""
@@ -18189,6 +18235,20 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         grant_updates=_reward_grant_updates,
     )
+    # Squarespace shop → the SAME fulfilment as the Stripe webhook. The poller
+    # turns each paid coin pack / tier on a Squarespace order into a
+    # Stripe-shaped session and hands it to _process_stripe_checkout, so coins,
+    # tiers, the wall and the emailed code behave identically. squarespace_store.py
+    squarespace_store.init(
+        get_firestore=_get_firestore,
+        fulfil=_process_stripe_checkout,
+        find_uid_by_email=_find_uid_by_verified_email,
+        coin_packs_by_cents=COIN_PACKS_BY_CENTS,
+        tiers_by_cents=SUPPORTER_TIERS_BY_CENTS,
+        username_label=CF_USERNAME_LABEL,
+    )
+    squarespace_store.start()
+
     if redeem_codes.secret_configured():
         print(f"[redeem] purchase codes ON: {redeem_codes.CODE_LEN} chars from a "
               f"{len(redeem_codes.CODE_ALPHABET)}-symbol alphabet, stored as an HMAC, "
