@@ -48,6 +48,7 @@ COPY referral_server.py /app/referral_server.py
 # Purchase redemption codes: how a website donation reaches an account.
 # Module-scope import too, so a missing COPY here is a server that will not boot.
 COPY redeem_codes.py /app/redeem_codes.py
+COPY printed_codes.py /app/printed_codes.py
 # Squarespace shop orders → game accounts. Module-scope import, so a missing
 # COPY here is a server that will not boot.
 COPY squarespace_store.py /app/squarespace_store.py

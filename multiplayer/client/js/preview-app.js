@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-11-15.3";
+  const APP_BUILD   = "2026-11-15.4";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -41853,9 +41853,9 @@
     }
     // ── Codes PRINTED on products (the hang tag's FEBRUARY2ND) ─────────
     // A printed code is the same on every tag in every box, so it is not a
-    // secret and needs no Firestore document: it lives here and works the
-    // moment the page loads, whatever is or is not in donation_codes. It is
-    // matched forgivingly, because a player types what they remember from the
+    // secret and needs no donation_codes document: it is recognised here and
+    // claimed on the server (claimPrintedCode), which keeps the ONE count of
+    // how many of the first run's claims are gone. It is matched forgivingly, because a player types what they remember from the
     // tag in their hand, and "February" is one of the most misspelt words there
     // is (the first try ever was FEBUARARY2ND, which said "Invalid code."). So
     // the tag's code is any FEB... word ending in 2 / 2ND / SECOND, either way
@@ -41892,6 +41892,23 @@
       }
       return d[s.length][t.length];
     }
+    // POST /api/printed-code/claim through the same bridge the purchase-code
+    // card uses. Resolves to the server's answer, or {ok:false, message} when
+    // the request never landed. Every rule (the cap, once per account) is in
+    // printed_codes.py; nothing here decides anything.
+    async function claimPrintedCode(code) {
+      const b = window.__ccRedeem;
+      if (!b || typeof b.post !== "function") return { ok:false, message:"Could not redeem, try again." };
+      let idToken = "";
+      try { idToken = (await b.idToken()) || ""; } catch (_) { idToken = ""; }
+      try {
+        const res = await b.post("/api/printed-code/claim", { code: String(code || ""), idToken });
+        const data = (res && typeof res === "object" && "data" in res && "status" in res) ? res.data : res;
+        return data || { ok:false, message:"Could not redeem, try again." };
+      } catch (_) {
+        return { ok:false, message:"Could not reach the server, try again in a moment." };
+      }
+    }
     async function redeemDonationCode(rawCode) {
       const code = normalizeRedeemCode(rawCode);
       if (!code) return { ok:false, msg:"Type a code first." };
@@ -41899,10 +41916,14 @@
       // No real code is this short or this long, so it is not worth a read.
       if (code.length < 4 || code.length > 32) return { ok:false, msg:"Invalid code." };
 
-      // 1) A PRINTED code (the hang tag's) is answered right here: no read and
-      //    no use to spend, so nothing in Firestore can stop it, not even a
-      //    half-made doc of the same name (printedCodeReward). Anything else is
-      //    a donation code: read its document to learn the reward + uses left.
+      // 1) A PRINTED code (the hang tag's) is recognised right here, however it
+      //    is spelt (printedCodeReward), and then CLAIMED ON THE SERVER: the
+      //    Fish comes with the first run of plushies only, so the code has one
+      //    claim per plushie in that run, and only the server can keep one
+      //    count for everybody (printed_codes.py). It never reads
+      //    donation_codes, so a half-made doc of the same name cannot stop it.
+      //    Anything else is a donation code: read its document to learn the
+      //    reward + uses left.
       const printed = printedCodeReward(code);
       const ref = printed ? null : _db.collection("donation_codes").doc(code);
       let data = null;
@@ -41943,10 +41964,23 @@
         return { ok:false, msg:"Code reward not recognized." };
       }
 
+      // 2a) A printed code: the server takes one of the first-run claims, writes
+      //     this account into its ledger and grants the reward, all in one
+      //     transaction. Then grant() below only catches this page up (the
+      //     server already saved it) and shows the unlock card.
+      if (printed) {
+        const res = await claimPrintedCode(printed.id);
+        if (!res || res.ok !== true) {
+          if (res && res.error === "already_owned") return { ok:false, msg:`You already own ${label}.` };
+          return { ok:false, msg: (res && res.message) || "Could not redeem, try again." };
+        }
+        await grant();
+        return { ok:true, msg:`Unlocked ${label}!`, refresh:true };
+      }
+
       // 2) Atomically reserve one use of the code (rejects if all uses spent).
-      //    Unlimited codes still bump `uses` for your own bookkeeping. A printed
-      //    code has no document, so it has no use to reserve.
-      if (!printed) try {
+      //    Unlimited codes still bump `uses` for your own bookkeeping.
+      try {
         await _db.runTransaction(async (tx) => {
           const s = await tx.get(ref);
           if (!s.exists) throw new Error("missing");

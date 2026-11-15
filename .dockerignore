@@ -22,6 +22,7 @@
 !level_pass_server.py
 !critter_pass_server.py
 !redeem_codes.py
+!printed_codes.py
 !squarespace_store.py
 !referral_server.py
 !welcome_server.py

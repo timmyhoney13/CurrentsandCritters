@@ -80,6 +80,7 @@ const NORMALIZE = grabFn("normalizeRedeemCode");
 const PRINTED   = grabFn("printedCodeReward");
 const TYPO      = grabFn("codeTypoDistance");
 const REDEEM    = grabFn("redeemDonationCode");
+const CLAIM     = grabFn("claimPrintedCode");
 if (!REDEEM) { console.log("FAIL: redeemDonationCode() is gone from preview-app.js"); process.exit(1); }
 
 // ── A. one code, however it is typed ──────────────────────────────────────
@@ -100,7 +101,29 @@ console.log("\nA. the code is read without case, spaces or dashes");
 }
 
 // ── B. the real redeemDonationCode against a stub Firestore ───────────────
-function makeWorld({ signedIn = true, owned = [], codes = {} } = {}) {
+// The server's side of the hang tag code (printed_codes.py, pinned by
+// test_printed_codes.py): one claim per account, a cap, and the grant.
+function makeServer({ cap = 250, claimed = 0, down = false } = {}) {
+  const srv = { cap, claimed, ledger: new Set(), calls: [] };
+  srv.bridge = {
+    async idToken() { return "tok-u1"; },
+    async post(path, body) {
+      srv.calls.push({ path, body });
+      if (down) throw new Error("offline");
+      if (path !== "/api/printed-code/claim") return { ok: false, status: 404, data: { ok: false } };
+      if (!body.idToken) return { ok: false, status: 401, data: { ok: false, error: "unauthorized", message: "Sign in to redeem a code." } };
+      if (body.code !== "FEBRUARY2ND") return { ok: true, status: 200, data: { ok: false, error: "bad_code", message: "Invalid code." } };
+      if (srv.ledger.has(body.idToken)) return { ok: true, status: 200, data: { ok: false, error: "already_claimed", message: "This account has already used the hang tag code." } };
+      if (srv.claimed >= srv.cap) return { ok: true, status: 200, data: { ok: false, error: "sold_out",
+        message: "Every Fish from the first run of plushies has been claimed. The Fish came only with the first run, so it can't be unlocked anymore." } };
+      srv.claimed++; srv.ledger.add(body.idToken);
+      return { ok: true, status: 200, data: { ok: true, number: srv.claimed, cap: srv.cap } };
+    },
+  };
+  return srv;
+}
+
+function makeWorld({ signedIn = true, owned = [], codes = {}, server = makeServer() } = {}) {
   const docs = JSON.parse(JSON.stringify(codes));
   const reads = [];
   const txs = [];
@@ -142,12 +165,13 @@ function makeWorld({ signedIn = true, owned = [], codes = {} } = {}) {
       __fishGrantUnlockedIcon: async (u) => { if (owns.has(u)) return false; owns.add(u); granted.push(u); return true; },
       __fishQueueAnimalUnlock: () => {},
       __fishGrantUnlockedBackground: async () => true,
+      __ccRedeem: server.bridge,
     },
   };
   vm.createContext(sandbox);
-  for (const src of [NORMALIZE, PRINTED, TYPO]) if (src) vm.runInContext(src, sandbox);
+  for (const src of [NORMALIZE, PRINTED, TYPO, CLAIM]) if (src) vm.runInContext(src, sandbox);
   vm.runInContext(REDEEM, sandbox);
-  return { redeem: (c) => vm.runInContext("redeemDonationCode", sandbox)(c), docs, reads, granted, owns, txs, sandbox };
+  return { redeem: (c) => vm.runInContext("redeemDonationCode", sandbox)(c), docs, reads, granted, owns, txs, sandbox, server };
 }
 
 // A word code kept in Firestore, like a promo made with --code. NOT the hang
@@ -223,12 +247,44 @@ const ONE_SHOT  = { reward_type: "avatar", reward_img: "/avatars/amberjack.png",
             && w.granted.length === 1 && w.granted[0] === "/avatars/fish.png", JSON.stringify(r));
       check(`...without reading or writing Firestore`, w.reads.length === 0 && w.txs.length === 0,
             JSON.stringify({ reads: w.reads, txs: w.txs.length }));
+      check(`...by claiming ONE of the first run's codes on the server, as FEBRUARY2ND`,
+            w.server.calls.length === 1 && w.server.calls[0].path === "/api/printed-code/claim"
+            && w.server.calls[0].body.code === "FEBRUARY2ND" && w.server.claimed === 1,
+            JSON.stringify(w.server.calls));
+    }
+    {
+      // THE LIMIT: one claim per first-run plushie. When they are gone, the
+      // Fish cannot be had this way again, and nothing is granted.
+      const server = makeServer({ cap: 250, claimed: 250 });
+      const w = makeWorld({ codes: {}, server });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("after the first run's 250 claims are gone, the code is sold out",
+            r && r.ok === false && /first run/.test(r.msg) && w.granted.length === 0, JSON.stringify(r));
+    }
+    {
+      const server = makeServer({ cap: 250, claimed: 249 });
+      const w = makeWorld({ codes: {}, server });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("claim 250 of 250 still works", r && r.ok === true && server.claimed === 250, JSON.stringify(r));
+      w.owns.delete("/avatars/fish.png");                 // traded away
+      const again = await w.redeem("FEBRUARY2ND");
+      check("...and the same account cannot claim a second one, even after trading it away",
+            again && again.ok === false && /already used/.test(again.msg) && server.claimed === 250,
+            JSON.stringify(again));
+    }
+    {
+      const w = makeWorld({ codes: {}, server: makeServer({ down: true }) });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("server unreachable: says so, grants nothing", r && r.ok === false && /server/.test(r.msg)
+            && w.granted.length === 0, JSON.stringify(r));
     }
     {
       const w = makeWorld({ codes: {}, owned: ["/avatars/fish.png"] });
       const r = await w.redeem("FEBRUARY2ND");
       check("an account that already has the Fish is told so, and nothing is granted",
             r && r.ok === false && r.msg === "You already own Fish." && w.granted.length === 0, JSON.stringify(r));
+      check("...and it does not use up one of the first run's claims",
+            w.server.calls.length === 0 && w.server.claimed === 0, JSON.stringify(w.server.calls));
     }
     {
       const w = makeWorld({ signedIn: false, codes: {} });

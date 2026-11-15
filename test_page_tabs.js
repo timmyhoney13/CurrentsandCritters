@@ -67,7 +67,7 @@ const ok = (cond, label) => lines.push((cond ? "PASS " : "FAIL ") + label);
 
 // The pages, in the order the bar names them. Every one of these is a band
 // that used to be a stop on the scroll.
-const TABS = ["home", "how", "snap", "critters", "plushy", "oceans",
+const TABS = ["home", "how", "snap", "critters", "plushy", "redeem", "oceans",
               "supporters", "sponsor", "partner"];
 
 for (const t of TABS) {

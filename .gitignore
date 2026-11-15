@@ -293,6 +293,8 @@
 # whichever tab holds it. Test-only, so it needs this entry and no Dockerfile
 # COPY.
 !test_page_tabs.js
+# The site's Search button and the Redeem Codes tab, in a real browser.
+!test_site_search.js
 # The Vercel Function that actually MAILS the enquiry, so the form no longer
 # has to wake the hibernating Render container to send anything. Both entries
 # are needed: git never looks inside an ignored directory, so without `!api/`
@@ -313,6 +315,11 @@
 # email match cannot work for a username-and-password account, whose stored
 # email is "" and whose Firebase address is synthetic.
 !redeem_codes.py
+# The hang tag's printed code (FEBRUARY2ND), capped at the first run of
+# plushies. Imported at module scope by multiplayer_server.py, so the server
+# will not boot without it (Dockerfile COPY too).
+!printed_codes.py
+!test_printed_codes.py
 # Its tests: the one-lock rule that stops a purchase being collected twice
 # (by code and by email), the derived code being stable across Stripe retries,
 # the HMAC storage, the rate limit, and a code paying exactly what the webhook

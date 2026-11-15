@@ -46,6 +46,7 @@ import discord_server
 import level_pass_server
 import critter_pass_server
 import redeem_codes
+import printed_codes
 import squarespace_store
 import referral_server
 import welcome_server
@@ -16210,6 +16211,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if redeem_codes.handle_get(self, parsed):
             return
 
+        # How many first-run hang tag claims are left. Public and it never
+        # names the code, so the website can show the count.
+        if printed_codes.handle_get(self, parsed):
+            return
+
         # Is the website's Partner With Us form actually able to send? Public,
         # and it says only whether mail can leave this deploy. Same reason as
         # the redemption state above: a form that quietly mails nowhere looks
@@ -16790,6 +16796,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # which account to pay). The uid comes off the verified token, and the
         # reward document is the one lock that stops it paying twice.
         if redeem_codes.handle_post(self, parsed, body):
+            return
+
+        # The hang tag's printed code, one claim per first-run plushie. The
+        # counter, the per-account ledger and the grant are one transaction.
+        if printed_codes.handle_post(self, parsed, body):
             return
 
         # The website's Partner With Us form (/api/partner/contact). Public by
@@ -18234,6 +18245,13 @@ def main() -> None:
         get_firestore=_get_firestore,
         verify_token=_verify_firebase_id_token,
         grant_updates=_reward_grant_updates,
+    )
+    # The hang tag's printed code (FEBRUARY2ND -> the Fish), capped at the
+    # first run of plushies. The count has to live on the server: two browsers
+    # cannot share one. printed_codes.py
+    printed_codes.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
     )
     # Squarespace shop → the SAME fulfilment as the Stripe webhook. The poller
     # turns each paid coin pack / tier on a Squarespace order into a
