@@ -318,6 +318,11 @@
 # the HMAC storage, the rate limit, and a code paying exactly what the webhook
 # would have paid.
 !test_redeem_codes.py
+# Squarespace shop → game accounts: polls the Orders API and hands each paid
+# coin pack / tier to the same fulfilment as the Stripe webhook. Imported at
+# module scope, so it ships with the server (Dockerfile, .dockerignore).
+!squarespace_store.py
+!test_squarespace_store.py
 !test_redeem_ui.js
 
 # Friend-code referral reward. Module-scope import again, same consequence if

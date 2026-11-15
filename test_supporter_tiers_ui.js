@@ -294,14 +294,14 @@ for (const [cents, tier] of Object.entries(byCents)) {
   const card = liveCards.find((c) => c.includes(`$${usd.toFixed(2)}`)) || "";
   const links = card.match(/data-stripe="([^"]*)"/g) || [];
   check(links.length === 1, `${tier}: exactly one Buy link when unlocked`);
-  check(/buy\.stripe\.com/.test(links[0] || ""),
-        `${tier}: that link is a real Stripe Payment Link`);
+  check(/buy\.stripe\.com|www\.beardedsealstudios\.com\/shop\/p\//.test(links[0] || ""),
+        `${tier}: that link is a real checkout (Squarespace shop or Stripe)`);
   check(!/phst-tier-soon/.test(card), `${tier}: unlocked, so the button is live`);
 }
 // …and every link the unlocked shelf emits is a well-formed live one.
 for (const m of LIVE.html.matchAll(/data-stripe="([^"]+)"/g)) {
-  check(/^https:\/\/buy\.stripe\.com\/[A-Za-z0-9]+$/.test(m[1]),
-        "every Buy button opens a live Stripe link: " + m[1]);
+  check(/^https:\/\/(buy\.stripe\.com\/[A-Za-z0-9]+|www\.beardedsealstudios\.com\/shop\/p\/[a-z0-9-]+)$/.test(m[1]),
+        "every Buy button opens a live checkout: " + m[1]);
 }
 
 console.log("\nabove the top tier: a message, not a checkout");
