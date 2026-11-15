@@ -18,10 +18,16 @@
  *      "February 2nd", "february-2nd" and "FEBRUARY2ND" are ONE code, and the
  *      6-digit donation codes come through unchanged.
  *   B. redeemDonationCode(), the REAL one sliced out of preview-app.js, run
- *      against a stub Firestore: the typed words look up FEBRUARY2ND, the
- *      unlimited fish code grants the fish, an account that already has the
- *      fish is told so WITHOUT spending a use, and the old 6-digit codes,
- *      single-use and spent, behave exactly as before.
+ *      against a stub Firestore: a word code kept in Firestore is looked up
+ *      however it is typed, an unlimited one grants once per account WITHOUT
+ *      spending a use on a repeat, and the old 6-digit codes, single-use and
+ *      spent, behave exactly as before.
+ *   H. THE HANG TAG'S CODE NEEDS NO FIRESTORE DOCUMENT. It is printed on every
+ *      tag, so it is built into the game: with an EMPTY donation_codes it still
+ *      unlocks the Fish, and it forgives the spellings people really type
+ *      (FEBUARARY2ND was the first one tried, and it said "Invalid code.").
+ *   I. The Fish is real: the actual ANIMAL_AVATARS entry, run through the
+ *      actual normalizeAvatarUrl(), is a "code" unlock whose art is on disk.
  *   C. The gallery's own input and Redeem handlers (sliced, not paraphrased):
  *      letters survive typing, and the click hands the code on.
  *   D. The markup: no numeric keypad, room for the code, an honest label.
@@ -37,8 +43,11 @@ const vm = require("vm");
 const { execFileSync } = require("child_process");
 
 const ROOT = __dirname;
-const APP  = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/preview-app.js"), "utf8");
-const HTML = fs.readFileSync(path.join(ROOT, "multiplayer/client/preview.html"), "utf8");
+// GALLERY_APP_FILE / GALLERY_HTML_FILE point the same checks at copies of the
+// DEPLOYED files (curl them from play.currentsandcritters.com), to prove what
+// players are actually served, not just what is in the repo.
+const APP  = fs.readFileSync(process.env.GALLERY_APP_FILE || path.join(ROOT, "multiplayer/client/js/preview-app.js"), "utf8");
+const HTML = fs.readFileSync(process.env.GALLERY_HTML_FILE || path.join(ROOT, "multiplayer/client/preview.html"), "utf8");
 const CSS  = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/preview.css"), "utf8");
 
 let pass = 0, fail = 0;
@@ -68,6 +77,8 @@ function grabFn(name) {
 }
 
 const NORMALIZE = grabFn("normalizeRedeemCode");
+const PRINTED   = grabFn("printedCodeReward");
+const TYPO      = grabFn("codeTypoDistance");
 const REDEEM    = grabFn("redeemDonationCode");
 if (!REDEEM) { console.log("FAIL: redeemDonationCode() is gone from preview-app.js"); process.exit(1); }
 
@@ -92,6 +103,7 @@ console.log("\nA. the code is read without case, spaces or dashes");
 function makeWorld({ signedIn = true, owned = [], codes = {} } = {}) {
   const docs = JSON.parse(JSON.stringify(codes));
   const reads = [];
+  const txs = [];
   const owns = new Set(owned);
   const granted = [];
   const ref = (id) => ({ id });
@@ -101,6 +113,7 @@ function makeWorld({ signedIn = true, owned = [], codes = {} } = {}) {
       return { doc: (id) => ref(id) };
     },
     async runTransaction(fn) {
+      txs.push(1);
       const tx = {
         async get(r) { return { exists: r.id in docs, data: () => docs[r.id] }; },
         update(r, patch) { Object.assign(docs[r.id], patch); },
@@ -132,12 +145,14 @@ function makeWorld({ signedIn = true, owned = [], codes = {} } = {}) {
     },
   };
   vm.createContext(sandbox);
-  if (NORMALIZE) vm.runInContext(NORMALIZE, sandbox);
+  for (const src of [NORMALIZE, PRINTED, TYPO]) if (src) vm.runInContext(src, sandbox);
   vm.runInContext(REDEEM, sandbox);
-  return { redeem: (c) => vm.runInContext("redeemDonationCode", sandbox)(c), docs, reads, granted, owns };
+  return { redeem: (c) => vm.runInContext("redeemDonationCode", sandbox)(c), docs, reads, granted, owns, txs, sandbox };
 }
 
-const FISH_CODE = { reward_type: "avatar", reward_img: "/avatars/fish.png", label: "Fish",
+// A word code kept in Firestore, like a promo made with --code. NOT the hang
+// tag's: that one is built in (section H) and never reads Firestore.
+const WORD_CODE = { reward_type: "avatar", reward_img: "/avatars/amberjack.png", label: "Amberjack",
                     max_uses: 0, unlimited: true, uses: 5 };
 const ONE_SHOT  = { reward_type: "avatar", reward_img: "/avatars/amberjack.png", label: "Amberjack",
                     max_uses: 1, unlimited: false, uses: 0 };
@@ -145,30 +160,29 @@ const ONE_SHOT  = { reward_type: "avatar", reward_img: "/avatars/amberjack.png",
 (async () => {
   console.log("\nB. the real redeemDonationCode() against a stub Firestore");
   {
-    const w = makeWorld({ codes: { FEBRUARY2ND: FISH_CODE } });
-    const r = await w.redeem("February 2nd");
-    check('typing "February 2nd" looks up donation_codes/FEBRUARY2ND',
-          w.reads.includes("FEBRUARY2ND"), JSON.stringify(w.reads));
-    check("...and unlocks the Fish", r && r.ok === true && w.granted.includes("/avatars/fish.png"), JSON.stringify(r));
-    check("...saying so in words", r && r.msg === "Unlocked Fish!", r && r.msg);
+    const w = makeWorld({ codes: { TIDEPOOL7: WORD_CODE } });
+    const r = await w.redeem("Tide Pool 7");
+    check('typing "Tide Pool 7" looks up donation_codes/TIDEPOOL7',
+          w.reads.includes("TIDEPOOL7"), JSON.stringify(w.reads));
+    check("...and unlocks its avatar", r && r.ok === true && w.granted.includes("/avatars/amberjack.png"), JSON.stringify(r));
+    check("...saying so in words", r && r.msg === "Unlocked Amberjack!", r && r.msg);
     check("...and the unlimited code counts the use (5 to 6) without running out",
-          w.docs.FEBRUARY2ND.uses === 6, w.docs.FEBRUARY2ND.uses);
+          w.docs.TIDEPOOL7.uses === 6, w.docs.TIDEPOOL7.uses);
 
-    const again = await w.redeem("FEBRUARY2ND");
-    check("the same account entering it again is told it already has the Fish",
-          again && again.ok === false && /already own Fish/.test(again.msg), again && again.msg);
-    check("...and that second try does NOT spend a use", w.docs.FEBRUARY2ND.uses === 6, w.docs.FEBRUARY2ND.uses);
+    const again = await w.redeem("TIDEPOOL7");
+    check("the same account entering it again is told it already has it",
+          again && again.ok === false && /already own Amberjack/.test(again.msg), again && again.msg);
+    check("...and that second try does NOT spend a use", w.docs.TIDEPOOL7.uses === 6, w.docs.TIDEPOOL7.uses);
   }
   {
-    // A second account, a fresh world: one printed code serves every tag.
-    const w = makeWorld({ codes: { FEBRUARY2ND: { ...FISH_CODE, uses: 900 } } });
-    const r = await w.redeem("february-2nd");
-    check("a different account with the same printed code also gets the Fish",
-          r && r.ok === true && w.docs.FEBRUARY2ND.uses === 901, JSON.stringify(r));
+    const w = makeWorld({ codes: { TIDEPOOL7: { ...WORD_CODE, uses: 900 } } });
+    const r = await w.redeem("tide-pool-7");
+    check("a different account with the same word code also gets it",
+          r && r.ok === true && w.docs.TIDEPOOL7.uses === 901, JSON.stringify(r));
   }
   {
-    const w = makeWorld({ signedIn: false, codes: { FEBRUARY2ND: FISH_CODE } });
-    const r = await w.redeem("February 2nd");
+    const w = makeWorld({ signedIn: false, codes: { TIDEPOOL7: WORD_CODE } });
+    const r = await w.redeem("Tide Pool 7");
     check("signed out: asked to sign in, nothing read", r && r.ok === false && /Sign in/.test(r.msg) && w.reads.length === 0,
           JSON.stringify(r));
   }
@@ -190,6 +204,90 @@ const ONE_SHOT  = { reward_type: "avatar", reward_img: "/avatars/amberjack.png",
     const s = await w2.redeem("481902");
     check("...and a spent single-use code is still refused",
           s && s.ok === false && s.msg === "This code has already been used.", s && s.msg);
+  }
+
+
+  // ── H. the hang tag's code: built in, forgiving, no Firestore needed ─────
+  console.log("\nH. FEBRUARY2ND works with NO Firestore document, however it is spelled");
+  {
+    check("printedCodeReward() exists in preview-app.js", !!PRINTED);
+    check("codeTypoDistance() exists in preview-app.js", !!TYPO);
+    const typed = ["FEBRUARY2ND", "February 2nd", "february-2nd", " FEBRUARY 2ND ",
+                   "FEBUARARY2ND", "FEBUARY2ND", "FEBURARY2ND", "FEBRAURY2ND", "FEBUARY 2ND",
+                   "FBRUARY2ND", "FERBUARY2ND", "FEBRUARY2N", "FEBRUARY 2", "Feb 2nd", "FEB2",
+                   "February second", "2nd February", "2nd of February"];
+    for (const t of typed) {
+      const w = makeWorld({ codes: {} });                 // donation_codes is EMPTY
+      const r = await w.redeem(t);
+      check(`"${t}" unlocks the Fish`, r && r.ok === true && r.msg === "Unlocked Fish!"
+            && w.granted.length === 1 && w.granted[0] === "/avatars/fish.png", JSON.stringify(r));
+      check(`...without reading or writing Firestore`, w.reads.length === 0 && w.txs.length === 0,
+            JSON.stringify({ reads: w.reads, txs: w.txs.length }));
+    }
+    {
+      const w = makeWorld({ codes: {}, owned: ["/avatars/fish.png"] });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("an account that already has the Fish is told so, and nothing is granted",
+            r && r.ok === false && r.msg === "You already own Fish." && w.granted.length === 0, JSON.stringify(r));
+    }
+    {
+      const w = makeWorld({ signedIn: false, codes: {} });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("signed out: asked to sign in first", r && r.ok === false && /Sign in/.test(r.msg), JSON.stringify(r));
+    }
+    {
+      // Even if someone DID make a Firestore doc for it, the built-in answer wins
+      // and nothing is spent, so a half-made or misspelt doc can never break it.
+      const w = makeWorld({ codes: { FEBRUARY2ND: { reward_type: "avatar", reward_img: "/avatars/WRONG.png", max_uses: 1, uses: 1 } } });
+      const r = await w.redeem("FEBRUARY2ND");
+      check("a broken Firestore doc of the same name cannot get in the way",
+            r && r.ok === true && w.granted[0] === "/avatars/fish.png" && w.reads.length === 0, JSON.stringify(r));
+    }
+    for (const t of ["MARCH3RD", "FISH", "FEBRUARY", "2ND", "SECOND", "FEBRUARY2026", "DECEMBER2ND"]) {
+      const w = makeWorld({ codes: {} });
+      const r = await w.redeem(t);
+      check(`"${t}" is NOT the tag's code`, r && r.ok === false && r.msg === "Invalid code." && w.granted.length === 0,
+            JSON.stringify(r));
+    }
+    for (const t of ["481902", "222222", "200200"]) {
+      const w = makeWorld({ codes: { [t]: ONE_SHOT } });
+      const r = await w.redeem(t);
+      check(`the 6-digit donation code ${t} still goes to Firestore`, w.reads.includes(t) && r && r.ok === true,
+            JSON.stringify([w.reads, r]));
+    }
+  }
+
+  // ── I. the Fish the code grants is the real one ─────────────────────────
+  console.log("\nI. the real Fish: catalog entry, URL, art");
+  {
+    const start = APP.indexOf("const ANIMAL_AVATARS = [");
+    let list = null;
+    if (start >= 0) {
+      // balance [ ] while skipping string literals AND comments (one apostrophe
+      // in a // comment otherwise opens a "string" that never closes)
+      let i = APP.indexOf("[", start), depth = 0, q = null;
+      for (; i < APP.length; i++) {
+        const ch = APP[i], nx = APP[i + 1];
+        if (q) { if (ch === "\\") { i++; continue; } if (ch === q) q = null; continue; }
+        if (ch === "/" && nx === "/") { i = APP.indexOf("\n", i); continue; }
+        if (ch === "/" && nx === "*") { i = APP.indexOf("*/", i) + 1; continue; }
+        if (ch === '"' || ch === "'" || ch === "`") { q = ch; continue; }
+        if (ch === "[") depth++;
+        else if (ch === "]") { depth--; if (depth === 0) break; }
+      }
+      try { list = vm.runInNewContext("(" + APP.slice(APP.indexOf("[", start), i + 1) + ")"); } catch (e) { list = null; }
+    }
+    check("read the real ANIMAL_AVATARS list", Array.isArray(list) && list.length > 50, list && list.length);
+    const normalizeAvatarUrl = vm.runInNewContext("(" + grabFn("normalizeAvatarUrl") + ")");
+    const byImg = {}; (list || []).forEach((a) => { byImg[a.img] = a; });
+    const img = normalizeAvatarUrl("/avatars/fish.png");
+    const fish = byImg[String(img).trim().toLowerCase()];
+    check("the real normalizeAvatarUrl keeps /avatars/fish.png as it is", img === "/avatars/fish.png", img);
+    check("...which is the Fish in the real catalog", !!fish && fish.id === "fish" && fish.name === "Fish",
+          fish && fish.id);
+    check("...a \"code\" unlock (kept forever, never re-earned)", !!fish && fish.unlock && fish.unlock.type === "code",
+          fish && JSON.stringify(fish.unlock));
+    check("...whose art is on disk", fs.existsSync(path.join(ROOT, "multiplayer/client/avatars/fish.png")));
   }
 
   // ── C. the gallery's own handlers ────────────────────────────────────────
@@ -243,6 +341,25 @@ const ONE_SHOT  = { reward_type: "avatar", reward_img: "/avatars/amberjack.png",
       check("an empty box asks for a code and sends nothing", sent.length === 2 && /code/i.test(msg.textContent) && msg.className.includes("err"),
             JSON.stringify([msg.textContent, msg.className]));
       check("...and no longer insists on six digits", !/6-digit/.test(msg.textContent), msg.textContent);
+
+      // Now the whole chain, as a player meets it: the gallery's handlers with the
+      // REAL redeemDonationCode behind them and an EMPTY donation_codes.
+      const w = makeWorld({ codes: {} });
+      const input2 = el(), btn2 = el(), msg2 = el();
+      const sb2 = w.sandbox;
+      Object.assign(sb2, {
+        $a: (id) => ({ "gal-code-input": input2, "gal-code-btn": btn2, "gal-code-msg": msg2 })[id] || null,
+        _galReadOnly: false, _galRenderHeader() {}, _galRenderTabs() {}, _galRenderGrid() {},
+        setTimeout: () => 0, console,
+      });
+      vm.runInContext(block, sb2);
+      input2.value = "FEBUARARY2ND";
+      await input2.fire("input");
+      await btn2.click();
+      check('typed into the gallery box, "FEBUARARY2ND" says Unlocked Fish!', msg2.textContent === "Unlocked Fish!"
+            && msg2.className.includes("ok"), JSON.stringify([msg2.textContent, msg2.className]));
+      check("...grants the Fish", w.granted.includes("/avatars/fish.png"), JSON.stringify(w.granted));
+      check("...and clears the box", input2.value === "", JSON.stringify(input2.value));
     }
   }
 

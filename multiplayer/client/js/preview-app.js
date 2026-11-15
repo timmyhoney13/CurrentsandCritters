@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-11-15.2";
+  const APP_BUILD   = "2026-11-15.3";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -41851,6 +41851,47 @@
     function normalizeRedeemCode(raw) {
       return String(raw == null ? "" : raw).toUpperCase().replace(/[^A-Z0-9]/g, "");
     }
+    // ── Codes PRINTED on products (the hang tag's FEBRUARY2ND) ─────────
+    // A printed code is the same on every tag in every box, so it is not a
+    // secret and needs no Firestore document: it lives here and works the
+    // moment the page loads, whatever is or is not in donation_codes. It is
+    // matched forgivingly, because a player types what they remember from the
+    // tag in their hand, and "February" is one of the most misspelt words there
+    // is (the first try ever was FEBUARARY2ND, which said "Invalid code."). So
+    // the tag's code is any FEB... word ending in 2 / 2ND / SECOND, either way
+    // round (2ND OF FEBRUARY), or anything within 2 typos of FEBRUARY2ND.
+    // Donation codes are six DIGITS, so none of this can ever shadow one.
+    // test_gallery_codes.js pins every spelling.
+    function printedCodeReward(code) {
+      const PRINTED = [
+        { id: "FEBRUARY2ND", reward_type: "avatar", reward_img: "/avatars/fish.png",
+          loose: [/^FEB[A-Z]{0,9}(?:2|2ND|SECOND)$/, /^(?:2|2ND|SECOND)(?:OF)?FEB[A-Z]{0,9}$/] },
+      ];
+      const c = normalizeRedeemCode(code);
+      if (!c || /^[0-9]+$/.test(c)) return null;
+      for (const p of PRINTED) {
+        if (c === p.id || p.loose.some((re) => re.test(c)) || codeTypoDistance(c, p.id) <= 2) return p;
+      }
+      return null;
+    }
+    // Typos between two codes: an insertion, a deletion, a wrong letter, or two
+    // neighbouring letters swapped (RB for BR) each count as ONE.
+    function codeTypoDistance(a, b) {
+      const s = String(a || ""), t = String(b || "");
+      const d = [];
+      for (let i = 0; i <= s.length; i++) d[i] = [i];
+      for (let j = 0; j <= t.length; j++) d[0][j] = j;
+      for (let i = 1; i <= s.length; i++) {
+        for (let j = 1; j <= t.length; j++) {
+          const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+          d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+          if (i > 1 && j > 1 && s[i - 1] === t[j - 2] && s[i - 2] === t[j - 1]) {
+            d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+          }
+        }
+      }
+      return d[s.length][t.length];
+    }
     async function redeemDonationCode(rawCode) {
       const code = normalizeRedeemCode(rawCode);
       if (!code) return { ok:false, msg:"Type a code first." };
@@ -41858,15 +41899,23 @@
       // No real code is this short or this long, so it is not worth a read.
       if (code.length < 4 || code.length > 32) return { ok:false, msg:"Invalid code." };
 
-      // 1) Read the code document to learn the reward + remaining uses.
-      const ref = _db.collection("donation_codes").doc(code);
+      // 1) A PRINTED code (the hang tag's) is answered right here: no read and
+      //    no use to spend, so nothing in Firestore can stop it, not even a
+      //    half-made doc of the same name (printedCodeReward). Anything else is
+      //    a donation code: read its document to learn the reward + uses left.
+      const printed = printedCodeReward(code);
+      const ref = printed ? null : _db.collection("donation_codes").doc(code);
       let data = null;
-      try {
-        const snap = await ref.get();
-        if (!snap.exists) return { ok:false, msg:"Invalid code." };
-        data = snap.data() || {};
-      } catch (e) {
-        return { ok:false, msg:"Could not check code, try again." };
+      if (printed) {
+        data = { reward_type: printed.reward_type, reward_img: printed.reward_img, unlimited: true };
+      } else {
+        try {
+          const snap = await ref.get();
+          if (!snap.exists) return { ok:false, msg:"Invalid code." };
+          data = snap.data() || {};
+        } catch (e) {
+          return { ok:false, msg:"Could not check code, try again." };
+        }
       }
       const type = String(data.reward_type || "").toLowerCase();
       // max_uses: 1 = single-use (default); 0 / absent-with-unlimited:true = unlimited.
@@ -41895,8 +41944,9 @@
       }
 
       // 2) Atomically reserve one use of the code (rejects if all uses spent).
-      //    Unlimited codes still bump `uses` for your own bookkeeping.
-      try {
+      //    Unlimited codes still bump `uses` for your own bookkeeping. A printed
+      //    code has no document, so it has no use to reserve.
+      if (!printed) try {
         await _db.runTransaction(async (tx) => {
           const s = await tx.get(ref);
           if (!s.exists) throw new Error("missing");
