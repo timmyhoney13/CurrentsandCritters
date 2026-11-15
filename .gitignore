@@ -174,6 +174,10 @@
 # membership. Plus the client chip's own render/claim rules.
 !test_discord_rewards.py
 !test_discord_reward_ui.js
+# Plush-tag QR reward (the free exclusive skin) and its tests.
+!tag_reward.py
+!test_tag_reward.py
+!test_tag_reward_ui.js
 
 # Level Pass (the free reward track over levels 1–100). multiplayer_server.py
 # imports this at module scope, so dropping it from the allowlist kills the

@@ -30,6 +30,8 @@
 # The website's plushy poll. Imported at module scope like the rest of these,
 # so without it the COPY in the Dockerfile fails and nothing deploys at all.
 !plush_vote.py
+# The plush-tag QR reward. Imported at module scope, same as the rest.
+!tag_reward.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json

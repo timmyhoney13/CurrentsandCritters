@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-29.1";
+  const APP_BUILD   = "2026-11-15.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -881,6 +881,27 @@
     // the app renders from. Without this the reward is real but invisible
     // until the next reload, which reads as "it didn't work".
     onRedeemed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
+  };
+
+  // ── Plush-tag QR reward bridge ─────────────────────────────────────────
+  // js/tag-reward.js. The QR on the plush hang tag carries a token; the server
+  // checks it and grants the exclusive skin once per account, in one
+  // transaction with its ledger (/api/tag-reward/claim). This bridge carries
+  // the token there and, after a grant, re-reads the account and pops the
+  // usual "you unlocked …" card for the new avatar.
+  window.__ccTagReward = {
+    APP_BUILD,
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    onGranted: async () => {
+      try { window.__fishReloadProfile && await window.__fishReloadProfile(); } catch (_) {}
+      try { window.__fishPopNewlyGrantedIcons && window.__fishPopNewlyGrantedIcons(); } catch (_) {}
+    },
   };
 
   // The sidebar entry, added only for the admin account. Re-checked whenever
@@ -22792,7 +22813,7 @@
       unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
     { id:"fish", name:"Fish", species:"Exclusive Avatars", img:"/avatars/fish.png",
       facts:"It's just a fish…",
-      unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
+      unlock:{ type:"code", label:"Scan the special QR code, or enter the code from donating, located at the top next to where it says Avatar Gallery." } },
 
     // ── Exclusive Skins (Store, bought with Critter Coins) ──────
     // Seasonal player icons. Behave exactly like any other avatar: equip one
@@ -26107,6 +26128,11 @@
       }
       try { localStorage.setItem(key, JSON.stringify([...seen])); } catch {}
     }
+    // For grants that land server-side mid-visit (the plush-tag QR reward):
+    // after the profile is re-read, pop whatever is new on THIS account.
+    window.__fishPopNewlyGrantedIcons = () => {
+      try { if (_authUser && !_galReadOnly) _popNewlyGrantedIcons(_authUser.uid, _unlockedIcons); } catch {}
+    };
 
     function syncStatsHeader(profile) {
       // Nothing repaints MY name, MY critter and MY level while another

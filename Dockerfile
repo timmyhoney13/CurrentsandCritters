@@ -62,6 +62,9 @@ COPY partner_contact.py /app/partner_contact.py
 # so a missing COPY here is a server that will not boot, not a vote that
 # quietly stops counting.
 COPY plush_vote.py /app/plush_vote.py
+# The plush-tag QR reward (the free exclusive skin). Module-scope import too,
+# so a missing COPY here is a server that will not boot.
+COPY tag_reward.py /app/tag_reward.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 # reef_planner.py reads this beside itself at import. It is committed holding
 # the knobs the module already ships with, so it is always present for this COPY
