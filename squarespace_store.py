@@ -17,15 +17,37 @@ the unclaimed-reward record, the emailed redemption code and the guest
 auto-merge all behave exactly as they did for Stripe. Nothing here grants
 anything by itself.
 
+THE FORM BEFORE ADD TO CART
+  Every coin pack and tier on the shop carries ONE shared Squarespace "Add to
+  Cart" form ("Game purchase info"), asked before the item goes in the cart:
+    1. Email you play Currents and Critters on            (required)
+    2. Do you want to be added to the Supporter Reef Wall? (required)
+         Yes, show my name / Yes, but show me as Anonymous / No, don't add me
+    3. Name for the Supporter Reef Wall                   (optional)
+    4. Game username (only if your account has no email)  (optional)
+  The answers ride on the order as lineItems[].customizations (the checkout
+  form, if one is ever added, arrives as order.formSubmission and is read as a
+  fallback). Labels are matched by KEYWORD, not verbatim, so rewording a
+  question on Squarespace keeps working as long as it still says "email",
+  "reef wall" / "supporter wall", "name ... wall" or "username".
+
 WHO GETS IT
-  Squarespace checkout gives us the buyer's email (and, if the product has a
-  form asking for it, a typed game username). The buyer is matched:
-    1. email → a game account whose Firebase sign-in email is VERIFIED and the
-       same address (an unverified address could be someone else's, so it
-       never matches), then
-    2. a typed "username" form answer → that account, then
-    3. otherwise a guest record keyed by email: the buyer is mailed a
-       redemption code and can also claim at /claim-rewards.
+  The buyer is matched, first hit wins:
+    1. the form's play email → a game account whose Firebase sign-in email is
+       VERIFIED and the same address (an unverified address could be someone
+       else's, so it never matches),
+    2. the form's typed username → that account: its claimed username, or the
+       login name of a username-and-password account,
+    3. the Squarespace checkout email → a verified account, as in 1,
+    4. otherwise a guest record keyed by the CHECKOUT email, the one address
+       we know reaches the person who paid: they are mailed a redemption code
+       and can also claim at /claim-rewards.
+
+THE SUPPORTER REEF WALL
+  Every paid coin pack / tier is recorded on the supporter's lifetime total.
+  Whether they are SHOWN comes from question 2: their name (or, left blank,
+  their game username), "Anonymous", or not shown. An order with no answer
+  (bought before the form existed) is recorded but not shown.
 
 EXACTLY ONCE
   Polling sees the same order again and again (every overlapping window, and
@@ -91,6 +113,8 @@ MAX_UNITS_PER_LINE = 50
 OVERLAP = timedelta(minutes=10)     # re-read this much of the last window
 
 USERNAME_FORM_HINTS = ("username", "user name", "game name", "player name")
+_WALL_HINTS = ("reef wall", "supporter wall", "donation wall")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # ── injected by multiplayer_server.main() ────────────────────────────────────
 _deps: Dict[str, Callable[..., Any]] = {}
@@ -110,13 +134,23 @@ def init(*, get_firestore: Callable[[], Any],
          find_uid_by_email: Callable[[str], Optional[str]],
          coin_packs_by_cents: Dict[int, int],
          tiers_by_cents: Dict[int, str],
-         username_label: str) -> None:
-    """Wire in the server's Firestore accessor and its ONE fulfilment path."""
+         username_label: str,
+         wall_name_label: str = "Name for Supporter Reef Wall",
+         wall_public_label: str = "Show my name publicly on the Supporter Wall?",
+         find_uid_by_username: Optional[Callable[[str], Optional[str]]] = None) -> None:
+    """Wire in the server's Firestore accessor and its ONE fulfilment path.
+
+    The three labels are the fulfilment's own custom-field keys
+    (CF_USERNAME_LABEL / CF_WALL_NAME_LABEL / CF_WALL_PUBLIC_LABEL): the form
+    answers are re-labelled with them so _process_stripe_checkout reads them."""
     _deps.update(get_firestore=get_firestore, fulfil=fulfil,
                  find_uid_by_email=find_uid_by_email)
     _deps["coin_packs"] = dict(coin_packs_by_cents)
     _deps["tiers"] = dict(tiers_by_cents)
     _deps["username_label"] = username_label
+    _deps["wall_name_label"] = wall_name_label
+    _deps["wall_public_label"] = wall_public_label
+    _deps["find_uid_by_username"] = find_uid_by_username
 
 
 def api_key() -> str:
@@ -173,23 +207,73 @@ def reward_for_line_item(item: dict) -> Optional[Tuple[str, Any, int]]:
     return None
 
 
-def _typed_username(order: dict) -> str:
-    """A product-form answer that looks like the buyer's game username."""
-    form = order.get("formSubmission")
+def _rows(form: Any) -> List[Dict[str, str]]:
+    """[{label, value}] from a Squarespace form payload (list or dict)."""
     rows: List[Any] = []
     if isinstance(form, list):
         rows = form
     elif isinstance(form, dict):
         rows = [{"label": k, "value": v} for k, v in form.items()]
+    out = []
     for row in rows:
         if not isinstance(row, dict):
             continue
-        label = str(row.get("label") or row.get("name") or "").strip().lower()
-        if any(h in label for h in USERNAME_FORM_HINTS):
-            val = str(row.get("value") or "").strip()
-            if val:
-                return val[:64]
+        label = str(row.get("label") or row.get("name") or "").strip()
+        val = row.get("value")
+        if isinstance(val, list):                 # a multi-value answer
+            val = ", ".join(str(v) for v in val)
+        out.append({"label": label, "value": str(val or "").strip()})
+    return out
+
+
+def wall_choice(value: str) -> str:
+    """'name' | 'anonymous' | 'no' | '' for the Reef Wall question's answer.
+
+    Privacy wins any tie: an answer that somehow carries both a yes and a no
+    is 'no', and one that carries both 'name' and 'anonymous' is 'anonymous'."""
+    v = " ".join(str(value or "").lower().split())
+    if not v:
+        return ""
+    if ("don't add" in v or "dont add" in v or "do not add" in v
+            or v in ("no", "no thanks", "no thank you") or v.startswith("no,")
+            or v.startswith("no ")):
+        return "no"
+    if "anonym" in v:
+        return "anonymous"
+    if v.startswith("yes") or "show my name" in v:
+        return "name"
     return ""
+
+
+def form_answers(order: dict, item: Optional[dict] = None) -> Dict[str, str]:
+    """The pre-purchase questions' answers for one line item.
+
+    The line item's own Add to Cart form first (two packs in one cart can be
+    for two different players), then the order's checkout form as a fallback.
+    Keys: play_email, username, wall ('name'/'anonymous'/'no'/''), wall_name."""
+    rows = _rows((item or {}).get("customizations")) + _rows(order.get("formSubmission"))
+    out = {"play_email": "", "username": "", "wall": "", "wall_name": ""}
+    for row in rows:
+        label, val = row["label"].lower(), row["value"]
+        if not val:
+            continue
+        # Order matters: "Game username (only if your account has no EMAIL)"
+        # must count as the username, and "NAME for the Supporter REEF WALL"
+        # as the wall name, before the broader email / wall checks see them.
+        if any(h in label for h in USERNAME_FORM_HINTS):
+            out["username"] = out["username"] or val[:64]
+        elif "name" in label and ("wall" in label) and "?" not in label:
+            out["wall_name"] = out["wall_name"] or val[:120]
+        elif any(h in label for h in _WALL_HINTS):
+            out["wall"] = out["wall"] or wall_choice(val)
+        elif "email" in label and _EMAIL_RE.match(val):
+            out["play_email"] = out["play_email"] or val[:320]
+    return out
+
+
+def _typed_username(order: dict) -> str:
+    """Kept for callers of the old name: the order-level username answer."""
+    return form_answers(order)["username"]
 
 
 def _order_is_paid(order: dict) -> bool:
@@ -203,7 +287,8 @@ def _order_is_paid(order: dict) -> bool:
 
 
 def events_for_order(order: dict, *, allow_test: bool = False,
-                     find_uid_by_email: Optional[Callable[[str], Optional[str]]] = None
+                     find_uid_by_email: Optional[Callable[[str], Optional[str]]] = None,
+                     find_uid_by_username: Optional[Callable[[str], Optional[str]]] = None
                      ) -> List[dict]:
     """Every grant one Squarespace order owes, as Stripe-shaped events.
 
@@ -219,15 +304,26 @@ def events_for_order(order: dict, *, allow_test: bool = False,
         return []
 
     email = str(order.get("customerEmail") or "").strip()
-    username = _typed_username(order)
     lookup = find_uid_by_email or _deps.get("find_uid_by_email")
-    # A lookup that FAILS (as opposed to finding nobody) raises out of here, so
-    # poll_once retries the order next time instead of filing a buyer who has
-    # an account as a guest.
-    uid = (lookup(email) or "") if (email and lookup) else ""
+    uid_cache: Dict[str, str] = {}
+
+    def uid_for(addr: str) -> str:
+        # A lookup that FAILS (as opposed to finding nobody) raises out of
+        # here, so poll_once retries the order next time instead of filing a
+        # buyer who has an account as a guest.
+        key = addr.strip().lower()
+        if not key or not lookup:
+            return ""
+        if key not in uid_cache:
+            uid_cache[key] = lookup(addr.strip()) or ""
+        return uid_cache[key]
+
+    by_username = find_uid_by_username or _deps.get("find_uid_by_username")
 
     currency = str(((order.get("grandTotal") or {}).get("currency")) or "USD").lower()
     username_label = _deps.get("username_label") or "Currents and Critters Online Username"
+    wall_name_label = _deps.get("wall_name_label") or "Name for Supporter Reef Wall"
+    wall_public_label = _deps.get("wall_public_label") or "Show my name publicly on the Supporter Wall?"
 
     out: List[dict] = []
     for idx, item in enumerate(order.get("lineItems") or []):
@@ -250,20 +346,43 @@ def events_for_order(order: dict, *, allow_test: bool = False,
             print(f"[squarespace] !! order {order_id} line {line_id} has quantity {qty}; "
                   f"delivering {MAX_UNITS_PER_LINE}, check it by hand")
             qty = MAX_UNITS_PER_LINE
+        answers = form_answers(order, item)
+        username = answers["username"]
+        # Who gets it: the play email from the form, then the typed username,
+        # then the checkout email. (A username nobody owns is also passed on as
+        # a custom field, so the fulfilment records what was typed.)
+        uid = uid_for(answers["play_email"]) if answers["play_email"] else ""
+        if not uid and username and by_username:
+            uid = by_username(username) or ""
+        if not uid:
+            uid = uid_for(email)
         meta = {
             "source": "squarespace",
             "product_name": str(item.get("productName") or "").strip()[:200],
             "squarespace_order_id": order_id,
             "squarespace_order_number": str(order.get("orderNumber") or ""),
+            "play_email": answers["play_email"],
+            "reef_wall": answers["wall"] or "unanswered",
         }
         meta["cc_coins" if kind == "coins" else "cc_tier"] = value
+
+        def field(key: str, label: str, val: str) -> dict:
+            return {"key": key, "type": "text",
+                    "label": {"type": "custom", "custom": label},
+                    "text": {"value": val}}
+
         custom_fields = []
         if username:
-            custom_fields.append({
-                "key": "username", "type": "text",
-                "label": {"type": "custom", "custom": username_label},
-                "text": {"value": username},
-            })
+            custom_fields.append(field("username", username_label, username))
+        if answers["wall"] == "name":
+            custom_fields.append(field("wallpublic", wall_public_label, "Yes"))
+            if answers["wall_name"]:
+                custom_fields.append(field("wallname", wall_name_label, answers["wall_name"]))
+        elif answers["wall"] == "anonymous":
+            custom_fields.append(field("wallpublic", wall_public_label, "Yes"))
+            custom_fields.append(field("wallname", wall_name_label, "Anonymous"))
+        elif answers["wall"] == "no":
+            custom_fields.append(field("wallpublic", wall_public_label, "No"))
         for n in range(max(1, qty)):
             sid = f"sqsp_{order_id}_{line_id}_{n}"
             out.append({
