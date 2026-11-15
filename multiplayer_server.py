@@ -43,6 +43,7 @@ import analytics_server
 import newsletter_email as nl_email
 import newsletter_server
 import discord_server
+import tag_reward
 import level_pass_server
 import critter_pass_server
 import redeem_codes
@@ -16765,6 +16766,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if discord_server.handle_post(self, parsed, body):
             return
 
+        # Plush-tag QR reward (/api/tag-reward/claim). The printed QR's token
+        # plus a verified account, once per account, written in one
+        # transaction with its ledger doc.
+        if tag_reward.handle_post(self, parsed, body):
+            return
+
         # Level Pass (/api/pass/*). Every tier re-derives the account's level
         # from its OWN stored total_xp inside the payout transaction, so the
         # browser's idea of its level is never an input to a reward.
@@ -18169,6 +18176,13 @@ def main() -> None:
     # everything else. Missing credentials are a LOUD no-op, the offer is
     # hidden and every claim refuses, never a payout that skips the check.
     discord_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+    )
+
+    # Plush-tag QR reward: the exclusive Fish skin, once per account, only
+    # through the token printed in the hang tag's QR code.
+    tag_reward.init(
         get_firestore=_get_firestore,
         verify_token=_verify_firebase_id_token,
     )
