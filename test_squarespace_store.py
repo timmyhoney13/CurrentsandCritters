@@ -29,6 +29,61 @@ def _order(oid="64aa01", *, sku="CC-COINS-25000", name="25,000 Critter Coins",
     }
 
 
+# The exact questions on the shop's "Game purchase info" Add to Cart form.
+Q_EMAIL = "Email you play Currents and Critters on"
+Q_WALL  = "Do you want to be added to the Supporter Reef Wall?"
+Q_NAME  = "Name for the Supporter Reef Wall"
+Q_USER  = "Game username (only if your account has no email)"
+
+
+def _form(email="", wall="", name="", user=""):
+    rows = [{"label": Q_EMAIL, "value": email}, {"label": Q_WALL, "value": wall},
+            {"label": Q_NAME, "value": name}, {"label": Q_USER, "value": user}]
+    return [r for r in rows if r["value"]]
+
+
+def _with_form(order, **kw):
+    for li in order["lineItems"]:
+        li["customizations"] = _form(**kw)
+    return order
+
+
+class FormAnswers(unittest.TestCase):
+    def test_each_question_lands_in_its_own_slot(self):
+        got = sq.form_answers({}, {"customizations": _form(
+            email="me@x.com", wall="Yes, show my name", name="Reef Fan", user="finn")})
+        self.assertEqual(got, {"play_email": "me@x.com", "username": "finn",
+                               "wall": "name", "wall_name": "Reef Fan"})
+
+    def test_the_username_question_is_not_read_as_the_email(self):
+        """Its label says 'has no email'; it must still count as the username."""
+        got = sq.form_answers({}, {"customizations": _form(user="finn")})
+        self.assertEqual((got["username"], got["play_email"]), ("finn", ""))
+
+    def test_wall_choices(self):
+        self.assertEqual(sq.wall_choice("Yes, show my name"), "name")
+        self.assertEqual(sq.wall_choice("Yes, but show me as Anonymous"), "anonymous")
+        self.assertEqual(sq.wall_choice("No, don't add me"), "no")
+        self.assertEqual(sq.wall_choice("No, don\u2019t add me".replace("\u2019", "'")), "no")
+        self.assertEqual(sq.wall_choice(""), "")
+        # "Anonymous" contains "no": it must not read as a no.
+        self.assertNotEqual(sq.wall_choice("Anonymous"), "no")
+        # privacy wins a tie
+        self.assertEqual(sq.wall_choice("Yes, show my name, No, don't add me"), "no")
+        self.assertEqual(sq.wall_choice("Yes, show my name, Yes, but show me as Anonymous"),
+                         "anonymous")
+
+    def test_line_form_beats_the_order_form(self):
+        order = {"formSubmission": [{"label": Q_EMAIL, "value": "order@x.com"}]}
+        self.assertEqual(sq.form_answers(order, {"customizations": _form(email="line@x.com")})
+                         ["play_email"], "line@x.com")
+        self.assertEqual(sq.form_answers(order, {})["play_email"], "order@x.com")
+
+    def test_a_non_email_in_the_email_box_is_ignored(self):
+        self.assertEqual(sq.form_answers({}, {"customizations": _form(email="finn")})
+                         ["play_email"], "")
+
+
 class Mapping(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -223,6 +278,178 @@ class EndToEnd(unittest.TestCase):
         self.assertNotIn("meta/squarespaceSync", self.db.docs)
         self.assertTrue(self.poll([_order()])["ok"])
         self.assertEqual(self.coins(), 25000)
+
+
+class Matching(unittest.TestCase):
+    """Who is credited, from the form's answers."""
+
+    def test_play_email_beats_the_checkout_email(self):
+        accts = {"play@x.com": "player", "buyer@example.com": "parent"}
+        evs = sq.events_for_order(_with_form(_order(), email="play@x.com"),
+                                  find_uid_by_email=lambda e: accts.get(e.lower()))
+        self.assertEqual(evs[0]["data"]["object"]["client_reference_id"], "player")
+
+    def test_unmatched_play_email_falls_back_to_checkout_email(self):
+        evs = sq.events_for_order(_with_form(_order(), email="typo@x.com"),
+                                  find_uid_by_email=lambda e: "me" if e == "buyer@example.com" else None)
+        self.assertEqual(evs[0]["data"]["object"]["client_reference_id"], "me")
+
+    def test_typed_username_beats_the_checkout_email(self):
+        evs = sq.events_for_order(
+            _with_form(_order(), email="nobody@x.com", user="Finn"),
+            find_uid_by_email=lambda e: "parent" if e == "buyer@example.com" else None,
+            find_uid_by_username=lambda u: "finn-uid" if u == "Finn" else None)
+        self.assertEqual(evs[0]["data"]["object"]["client_reference_id"], "finn-uid")
+
+    def test_two_packs_for_two_players_in_one_cart(self):
+        order = _order()
+        order["lineItems"] = [
+            {"id": "a", "sku": "CC-COINS-1000", "productName": "1,000 Critter Coins", "quantity": 1,
+             "unitPricePaid": {"currency": "USD", "value": "1.00"},
+             "customizations": _form(email="one@x.com", wall="No, don't add me")},
+            {"id": "b", "sku": "CC-COINS-1000", "productName": "1,000 Critter Coins", "quantity": 1,
+             "unitPricePaid": {"currency": "USD", "value": "1.00"},
+             "customizations": _form(email="two@x.com", wall="Yes, show my name")},
+        ]
+        evs = sq.events_for_order(order, find_uid_by_email=lambda e: e.split("@")[0])
+        self.assertEqual([e["data"]["object"]["client_reference_id"] for e in evs], ["one", "two"])
+
+
+class ReefWall(EndToEnd):
+    """The Reef Wall answer, through the real fulfilment, onto the wall."""
+
+    def wall_doc(self, uid="me"):
+        return self.db.docs[f"supporters/{uid}"]
+
+    def account(self, uid="me", email="buyer@example.com", coins=0, username="ReefFinn"):
+        super().account(uid=uid, email=email, coins=coins)
+        self.db.docs[f"users/{uid}"]["username"] = username
+
+    def test_show_my_name(self):
+        self.account()
+        self.poll([_with_form(_order(), email="buyer@example.com",
+                              wall="Yes, show my name", name="Tim the Turtle")])
+        d = self.wall_doc()
+        self.assertEqual((d["displayName"], d["anonymous"], d["visible"], d["status"]),
+                         ("Tim the Turtle", False, True, "approved"))
+        self.assertEqual(self.coins(), 25000)
+
+    def test_show_my_name_left_blank_uses_the_game_username(self):
+        self.account()
+        self.poll([_with_form(_order(), email="buyer@example.com", wall="Yes, show my name")])
+        d = self.wall_doc()
+        self.assertEqual((d["displayName"], d["visible"]), ("ReefFinn", True))
+
+    def test_anonymous_is_on_the_wall_as_anonymous(self):
+        self.account()
+        self.poll([_with_form(_order(), email="buyer@example.com",
+                              wall="Yes, but show me as Anonymous", name="Ignored Name")])
+        d = self.wall_doc()
+        self.assertEqual((d["displayName"], d["visible"], d["status"]),
+                         ("Anonymous", True, "approved"))
+
+    def test_no_is_recorded_but_never_shown(self):
+        self.account()
+        self.poll([_with_form(_order(), email="buyer@example.com", wall="No, don't add me",
+                              name="Should Not Show")])
+        d = self.wall_doc()
+        self.assertEqual((d["visible"], d["anonymous"]), (False, True))
+        self.assertEqual(d["totalSpentCents"], 2000)
+        self.assertEqual(self.coins(), 25000, "saying no to the wall must not cost the coins")
+
+    def test_the_wall_lists_shown_buyers_only(self):
+        self.account(uid="a", email="a@x.com")
+        self.account(uid="b", email="b@x.com")
+        self.account(uid="c", email="c@x.com")
+        self.poll([
+            _with_form(_order("o1"), email="a@x.com", wall="Yes, show my name", name="Alpha"),
+            _with_form(_order("o2"), email="b@x.com", wall="Yes, but show me as Anonymous"),
+            _with_form(_order("o3"), email="c@x.com", wall="No, don't add me"),
+        ])
+        real = self.ms._get_firestore
+        try:
+            self.ms._get_firestore = lambda: _WhereDb(self.db)
+            names = sorted(r["displayName"] for r in self.ms._build_supporter_wall())
+        finally:
+            self.ms._get_firestore = real
+        self.assertEqual(names, ["Alpha", "Anonymous"])
+
+    def test_a_guest_who_said_yes_is_on_the_wall_too(self):
+        self.poll([_with_form(_order(email="new@x.com"), email="new@x.com",
+                              wall="Yes, show my name", name="Newcomer")])
+        d = self.db.docs["guestSupporters/new@x.com"]
+        self.assertEqual((d["displayName"], d["visible"]), ("Newcomer", True))
+        self.assertEqual(len(self.sent), 1, "the guest still gets their code")
+        self.assertEqual(self.sent[0]["to_email"], "new@x.com")
+
+
+class TypedUsername(unittest.TestCase):
+    """The "Game username" box finds username-and-password accounts too."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ms = importlib.import_module("multiplayer_server")
+
+    def setUp(self):
+        from firebase_admin import auth as fb_auth
+        self.fb_auth = fb_auth
+        self.db = _Db()
+        self._real_fs = self.ms._get_firestore
+        self.ms._get_firestore = lambda: self.db
+        self._real_get = fb_auth.get_user_by_email
+        self._real_q = self.ms._find_uid_by_username
+        self.ms._find_uid_by_username = lambda db, u: {"reeffinn": "claimed-uid"}.get(u)
+        logins = {"mermaid_92@" + self.ms.CC_LOGIN_DOMAIN: "pw-uid"}
+
+        def get_user_by_email(addr):
+            if addr not in logins:
+                raise fb_auth.UserNotFoundError("nope")
+            return type("U", (), {"uid": logins[addr], "email_verified": False})()
+        fb_auth.get_user_by_email = get_user_by_email
+        self.db.docs["users/pw-uid"] = {"nickname": "Mermaid"}
+
+    def tearDown(self):
+        self.ms._get_firestore = self._real_fs
+        self.fb_auth.get_user_by_email = self._real_get
+        self.ms._find_uid_by_username = self._real_q
+
+    def test_claimed_username(self):
+        self.assertEqual(self.ms._find_uid_by_typed_username("ReefFinn"), "claimed-uid")
+
+    def test_login_name_of_a_password_account(self):
+        self.assertEqual(self.ms._find_uid_by_typed_username(" Mermaid_92 "), "pw-uid")
+
+    def test_unknown_name_is_nobody(self):
+        self.assertIsNone(self.ms._find_uid_by_typed_username("nobody_here"))
+        self.assertIsNone(self.ms._find_uid_by_typed_username("has spaces in it"))
+        self.assertIsNone(self.ms._find_uid_by_typed_username(""))
+
+
+class _WhereDb:
+    """Just enough of .collection(x).where(f, "==", v).limit(n).get() for the wall."""
+
+    def __init__(self, db):
+        self.db = db
+
+    def collection(self, name):
+        db = self.db
+
+        class _Q:
+            def where(self, f, op, v):
+                self.f, self.v = f, v
+                return self
+
+            def limit(self, n):
+                return self
+
+            def get(self):
+                out = []
+                for path, d in db.docs.items():
+                    parts = path.split("/")
+                    if len(parts) == 2 and parts[0] == name and d.get(self.f) == self.v:
+                        out.append(type("S", (), {"id": parts[1], "to_dict": lambda s, d=d: dict(d)})())
+                return out
+        return _Q()
 
 
 if __name__ == "__main__":

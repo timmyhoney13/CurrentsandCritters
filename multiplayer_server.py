@@ -2045,6 +2045,35 @@ def _find_uid_by_username(db, username_lower: str) -> Optional[str]:
     return None
 
 
+def _find_uid_by_typed_username(typed: str) -> Optional[str]:
+    """The game account a shop buyer named in the "Game username" box.
+
+    First the claimed, unique username (users.usernameLower, the same rule as
+    _find_uid_by_username). Then the LOGIN name of a username-and-password
+    account, which signs in to Firebase as <name>@CC_LOGIN_DOMAIN: Firebase
+    keeps that address unique, so it names exactly one account, and it is the
+    one name such a player is sure to know. Raises when Firebase itself fails,
+    so the order is retried instead of being filed as a guest."""
+    name = str(typed or "").strip().lstrip("@").lower()
+    if not name or len(name) > 64:
+        return None
+    db = _get_firestore()
+    if db is None:
+        raise RuntimeError("Firebase Admin not configured")
+    uid = _find_uid_by_username(db, name)
+    if uid:
+        return uid
+    if not re.match(r"^[a-z0-9._-]{3,20}$", name):
+        return None
+    from firebase_admin import auth as fb_auth
+    try:
+        rec = fb_auth.get_user_by_email(name + "@" + CC_LOGIN_DOMAIN)
+    except fb_auth.UserNotFoundError:
+        return None
+    snap = db.collection("users").document(rec.uid).get()
+    return rec.uid if snap.exists else None
+
+
 def _session_product_name(session: dict, kind: Optional[str], value: Any) -> str:
     """Best-effort human name for what was bought (for the payment record)."""
     meta = session.get("metadata") or {}
@@ -2269,9 +2298,18 @@ def _process_stripe_checkout(event: dict) -> str:
         matched_uid = _find_uid_by_username(db, username_typed_lower) or ""
 
     # Public-name choice → displayName + anonymous flag.
+    #   yes + a name          → that name on the wall
+    #   yes + "Anonymous"     → on the wall, shown as "Anonymous" (the Squarespace
+    #                           form's "Yes, but show me as Anonymous")
+    #   yes + no name         → the matched account's game username (looked up
+    #                           inside the transaction below), else "Supporter"
+    #   no / unanswered       → recorded, never shown
+    name_from_fallback = False
     if _is_affirmative(public_wall_choice):
         anonymous = False
-        display_name = supporter_wall_name.strip() or username_typed or "Supporter"
+        display_name = supporter_wall_name.strip() or username_typed
+        if not display_name:
+            display_name, name_from_fallback = "Supporter", True
     else:
         anonymous = True
         display_name = "Anonymous"
@@ -2335,6 +2373,12 @@ def _process_stripe_checkout(event: dict) -> str:
             return "duplicate"
 
         prev = sup_snap.to_dict() or {}
+        # "Leave it blank to use your game username": the buyer asked to be
+        # shown and named nobody, so show the account they were matched to.
+        shown_name = display_name
+        if name_from_fallback:
+            shown_name = (str(existing_user.get("username") or existing_user.get("nickname") or "")
+                          .strip()[:120] or display_name)
         new_total = int(prev.get("totalSpentCents") or 0) + amount_cents   # lifetime
         new_count = int(prev.get("paymentCount") or 0) + 1
         tier_name, wall_size = _supporter_tier_for_total(new_total)        # by lifetime
@@ -2350,9 +2394,9 @@ def _process_stripe_checkout(event: dict) -> str:
         if anonymous:
             status, visible = "approved", False
         elif (sup_snap.exists and prev.get("status") == "approved"
-                and str(prev.get("displayName") or "") == display_name):
+                and str(prev.get("displayName") or "") == shown_name):
             status, visible = "approved", bool(prev.get("visible"))
-        elif _name_needs_review(display_name):
+        elif _name_needs_review(shown_name):
             status, visible = "pending_review", False
         else:
             status, visible = "approved", True
@@ -2378,7 +2422,7 @@ def _process_stripe_checkout(event: dict) -> str:
             "stripeCustomerId": stripe_customer_id,
             "email":            checkout_email,
             "emailLower":       checkout_email.lower(),   # case-insensitive claim match key
-            "displayName":      display_name,
+            "displayName":      shown_name,
             "anonymous":        anonymous,
             "totalSpentCents":  new_total,
             "tier":             tier_name,
@@ -18246,6 +18290,9 @@ def main() -> None:
         coin_packs_by_cents=COIN_PACKS_BY_CENTS,
         tiers_by_cents=SUPPORTER_TIERS_BY_CENTS,
         username_label=CF_USERNAME_LABEL,
+        wall_name_label=CF_WALL_NAME_LABEL,
+        wall_public_label=CF_WALL_PUBLIC_LABEL,
+        find_uid_by_username=_find_uid_by_typed_username,
     )
     squarespace_store.start()
 

@@ -34517,12 +34517,23 @@
           // once the server has confirmed it kept the record.
           // A username-and-password account signs in with a synthetic
           // address nobody can type at checkout, so it is not offered as one.
+          // The shop asks, before Add to Cart: the email you play on, then
+          // whether to join the Supporter Reef Wall (your name, Anonymous, or
+          // not at all). Tell the player exactly what to type there.
           const rawEmail = String((_authUser && _authUser.email) || "");
-          const email = (typeof CC_LOGIN_DOMAIN === "string"
-                         && rawEmail.toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN)) ? "" : rawEmail;
+          const isLoginName = (typeof CC_LOGIN_DOMAIN === "string"
+                               && rawEmail.toLowerCase().endsWith("@" + CC_LOGIN_DOMAIN));
+          const email = isLoginName ? "" : rawEmail;
+          const loginName = isLoginName ? rawEmail.slice(0, rawEmail.lastIndexOf("@")) : "";
+          const wallLine = " You will also be asked if you want to be added to the "
+                         + "Supporter Reef Wall, with your name or as Anonymous.";
           const note = email
-            ? "At checkout, enter " + email + ". That email is how your purchase finds this account."
-            : "After paying, you will be emailed a code. Enter it in the Friends tab to add your purchase to this account.";
+            ? "On the next page, the first question is the email you play Currents and Critters on. "
+              + "Enter " + email + " so your purchase reaches this account." + wallLine
+            : loginName
+              ? "On the next page, enter your own email, then type " + loginName
+                + " in the Game username box so your purchase reaches this account." + wallLine
+              : "On the next page, enter the email you play Currents and Critters on." + wallLine;
           ccPurchaseConsent(productLabel, () => {
             _phstRememberReturn();
             window.location.href = _phstStripeUrl(baseUrl);
