@@ -404,6 +404,7 @@
 # presence heartbeat stamped MY uid onto THEIR swapped-in profile, which
 # defeated every "is this mine?" check downstream and left my Player Home
 # header wearing their name and their critter after the gallery closed.
+!test_gallery_codes.js
 !test_gallery_identity_leak.js
 
 # The gallery's stage is the reef and the critter stands in a circle. The

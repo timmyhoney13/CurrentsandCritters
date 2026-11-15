@@ -15876,11 +15876,13 @@
       margin-left: 16px;
     }
     .gal-code-input {
-      width: 108px; border-radius: 9px;
+      /* Wide enough for a printed word code (FEBRUARY2ND), not just six
+         digits: test_gallery_codes.js measures it in Nunito at four widths. */
+      width: 164px; border-radius: 9px;
       border: 1.5px solid var(--cr-edge);
       background: rgba(255,255,255,.75); color: var(--cr-ink);
       padding: 8px 11px; font-size: .9rem; font-weight: 800;
-      letter-spacing: 2.5px; text-align: center;
+      letter-spacing: 1.5px; text-align: center;
       font-family: "Nunito", sans-serif; outline: none;
       transition: border-color .15s, box-shadow .15s;
     }

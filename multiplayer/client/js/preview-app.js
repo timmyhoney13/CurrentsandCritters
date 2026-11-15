@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-10-29.1";
+  const APP_BUILD   = "2026-11-15.2";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -25079,16 +25079,18 @@
       };
       if (codeInput) {
         codeInput.addEventListener("input", () => {
-          // Numeric only, max 6, clear any stale message as they type.
-          codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
+          // Letters AND digits: a donation code is six digits, the hang tag's
+          // is a word. Nothing is stripped as they type (it once stripped every
+          // letter, so a word code could not even be entered); the code is read
+          // by normalizeRedeemCode on Redeem. Just clear any stale message.
           showCodeMsg("", false);
         });
         codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") codeBtn?.click(); });
       }
       if (codeBtn) codeBtn.addEventListener("click", async () => {
         if (_galReadOnly) return; // never redeem while viewing someone else's collection
-        const code = String(codeInput?.value || "").replace(/\D/g, "");
-        if (code.length !== 6) { showCodeMsg("Enter a 6-digit code.", false); return; }
+        const code = normalizeRedeemCode(codeInput?.value);
+        if (!code) { showCodeMsg("Type a code first.", false); return; }
         codeBtn.disabled = true;
         showCodeMsg("Checking…", true);
         try {
@@ -41836,13 +41838,25 @@
     }
 
     // ── Donation code redemption (Firestore-validated, per-item) ──────
-    // Codes live in the `donation_codes` collection (doc id = the 6-digit code).
+    // Codes live in the `donation_codes` collection (doc id = the code).
     // Each doc: { reward_type:"avatar"|"background", reward_img:"/avatars/..png"|"/backgrounds/..png" }.
     // Security rules allow GET (validate a known code) but not LIST (no enumeration).
+    //
+    // A code is letters and digits. The 6-digit donation codes are one kind; a
+    // printed word is the other (FEBRUARY2ND, under the QR on the hang tag,
+    // unlocks the Fish). Case, spaces, dashes and dots never matter, so
+    // "February 2nd" and "FEBRUARY2ND" are one code. Firestore ids are
+    // case-sensitive, so every code is stored UPPERCASE: make one with
+    // `scripts/make_donation_code.py --code`. test_gallery_codes.js pins this.
+    function normalizeRedeemCode(raw) {
+      return String(raw == null ? "" : raw).toUpperCase().replace(/[^A-Z0-9]/g, "");
+    }
     async function redeemDonationCode(rawCode) {
-      const code = String(rawCode || "").replace(/\D/g, "").trim();
-      if (code.length !== 6) return { ok:false, msg:"Enter a 6-digit code." };
+      const code = normalizeRedeemCode(rawCode);
+      if (!code) return { ok:false, msg:"Type a code first." };
       if (!_authUser || !_db)  return { ok:false, msg:"Sign in to redeem a code." };
+      // No real code is this short or this long, so it is not worth a read.
+      if (code.length < 4 || code.length > 32) return { ok:false, msg:"Invalid code." };
 
       // 1) Read the code document to learn the reward + remaining uses.
       const ref = _db.collection("donation_codes").doc(code);
