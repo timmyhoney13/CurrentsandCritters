@@ -157,6 +157,11 @@ const SCENARIOS = {
     ok(drag("mouse", 80) === "2", "a longer drag turns it two");
     ok(drag("mouse", -40) === "3", "dragging left turns it the other way");
     ok(drag("touch", 160) === "0", "a finger drag of a full turn comes all the way round");
+    var sharkT = getComputedStyle(viewers[0].box.querySelector(".st-frame")).transform;
+    var turtleT = getComputedStyle(viewers[1].box.querySelector(".st-frame")).transform;
+    ok(sharkT.indexOf("matrix(0.82, 0, 0, 0.82") === 0, "the whale shark is pulled back to 82% so it matches the turtle: " + sharkT);
+    ok(turtleT === "none" || turtleT.indexOf("matrix(1, 0, 0, 1") === 0, "the turtle stays at full size: " + turtleT);
+    ok(getComputedStyle(viewers[0].box).backgroundColor === "rgb(255, 255, 255)", "the viewer is plain white, so the smaller photo has no visible edge");
     ok(getComputedStyle(box).touchAction === "pan-y", "an up/down swipe on it still scrolls the page");
 
     // Hands off: the auto-spin stops the moment someone touches it.

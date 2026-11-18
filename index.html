@@ -1190,13 +1190,16 @@
   .st-plush { background: #fff; border: 1px solid var(--line-soft, #d9e9f2); border-radius: 26px; padding: 18px;
               box-shadow: 0 14px 36px rgba(10, 80, 120, 0.12); display: flex; flex-direction: column; gap: 14px; }
   .st-360 { position: relative; aspect-ratio: 1 / 1; border-radius: 20px; overflow: hidden; cursor: grab;
-            background: radial-gradient(circle at 50% 40%, #ffffff 0%, #eef7fc 70%); touch-action: pan-y;
+            background: #fff; touch-action: pan-y;
             user-select: none; -webkit-user-select: none; outline: none; }
   .st-360:focus-visible { box-shadow: 0 0 0 3px var(--brand-cyan); }
   .st-360.is-dragging { cursor: grabbing; }
   .st-stage { position: absolute; inset: 0; }
   .st-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0;
-              transition: opacity .14s linear; pointer-events: none; -webkit-user-drag: none; }
+              transition: opacity .14s linear; pointer-events: none; -webkit-user-drag: none;
+              transform: scale(var(--st-scale, 1)); }
+  /* The shark's photos are shot closer than the turtle's: pull it back so both sit at the same distance. */
+  #store-whale-shark-plush { --st-scale: .82; }
   .st-frame.is-on { opacity: 1; }
   .st-360-tag { position: absolute; top: 12px; left: 12px; z-index: 2; background: rgba(255,255,255,.92);
                 border: 1px solid var(--line-soft, #d9e9f2); border-radius: 999px; padding: 6px 11px;
