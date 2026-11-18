@@ -46,7 +46,7 @@ ok(tabs[0] === "home" && tabs[1] === "store", "the Store tab is right of Home: "
 ok(/data-tab="store"[^>]*>Store</.test(INDEX), "...and it is labelled Store");
 const PANEL = INDEX.slice(INDEX.indexOf('data-panel="store"'), INDEX.indexOf("<!-- /panel-store -->"));
 ok(PANEL.length > 1000, "the Store page is there and closed");
-for (const m of PANEL.matchAll(/src="(assets\/[^"]+)"/g)) ok(fs.existsSync(path.join(ROOT, m[1])), "the Store's image " + m[1] + " exists");
+for (const m of PANEL.matchAll(/src="(assets\/[^"?]+)[^"]*"/g)) ok(fs.existsSync(path.join(ROOT, m[1])), "the Store's image " + m[1] + " exists");
 ok(PANEL.indexOf("Whale Shark") < PANEL.indexOf("Critter Coins</h3>") &&
    PANEL.indexOf("Loggerhead Sea Turtle") < PANEL.indexOf("Critter Coins</h3>"),
    "the plushies are at the top, above the coins");
