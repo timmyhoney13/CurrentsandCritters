@@ -67,7 +67,7 @@ const ok = (cond, label) => lines.push((cond ? "PASS " : "FAIL ") + label);
 
 // The pages, in the order the bar names them. Every one of these is a band
 // that used to be a stop on the scroll.
-const TABS = ["home", "how", "snap", "critters", "plushy", "redeem", "oceans",
+const TABS = ["home", "store", "how", "snap", "critters", "plushy", "redeem", "oceans",
               "supporters", "sponsor", "partner"];
 
 for (const t of TABS) {
@@ -393,7 +393,7 @@ const SCENARIOS = {
     first.focus();
     first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     await sleep(120);
-    ok(window.ccTabs.current === "how", "right arrow moves to the next page: " + window.ccTabs.current);
+    ok(window.ccTabs.current === "store", "right arrow moves to the next page: " + window.ccTabs.current);
     document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
     await sleep(120);
     ok(window.ccTabs.current === "home", "left arrow moves back: " + window.ccTabs.current);

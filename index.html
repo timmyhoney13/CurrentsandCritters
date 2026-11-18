@@ -1182,6 +1182,64 @@
   .rd-more b { color: #fff; }
   @media (max-width: 860px) { .rd-grid, .rd-more { grid-template-columns: 1fr; } }
 
+  /* ── STORE ── */
+  .section.store { background: linear-gradient(180deg, #e8f8ff 0%, #f4fffb 100%); }
+  .st-sub { font-family: var(--font-display); font-size: 26px; color: var(--ink-deep); margin: 8px 0 16px; }
+  .st-sub#store-coins { margin-top: 44px; }
+  .st-plushies { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .st-plush { background: #fff; border: 1px solid var(--line-soft, #d9e9f2); border-radius: 26px; padding: 18px;
+              box-shadow: 0 14px 36px rgba(10, 80, 120, 0.12); display: flex; flex-direction: column; gap: 14px; }
+  .st-360 { position: relative; aspect-ratio: 1 / 1; border-radius: 20px; overflow: hidden; cursor: grab;
+            background: radial-gradient(circle at 50% 40%, #ffffff 0%, #eef7fc 70%); touch-action: pan-y;
+            user-select: none; -webkit-user-select: none; outline: none; }
+  .st-360:focus-visible { box-shadow: 0 0 0 3px var(--brand-cyan); }
+  .st-360.is-dragging { cursor: grabbing; }
+  .st-stage { position: absolute; inset: 0; }
+  .st-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0;
+              transition: opacity .14s linear; pointer-events: none; -webkit-user-drag: none; }
+  .st-frame.is-on { opacity: 1; }
+  .st-360-tag { position: absolute; top: 12px; left: 12px; z-index: 2; background: rgba(255,255,255,.92);
+                border: 1px solid var(--line-soft, #d9e9f2); border-radius: 999px; padding: 6px 11px;
+                font: 800 11px/1 var(--font-body); letter-spacing: .7px; text-transform: uppercase; color: var(--ink-deep); }
+  .st-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 40px; height: 40px;
+              border-radius: 50%; border: 1px solid var(--line-soft, #d9e9f2); background: rgba(255,255,255,.95);
+              font-size: 24px; line-height: 1; color: var(--ink-deep); cursor: pointer; display: grid; place-items: center; }
+  .st-arrow:hover { background: #fff; box-shadow: 0 4px 14px rgba(10,80,120,.18); }
+  .st-prev { left: 10px; } .st-next { right: 10px; }
+  .st-drag-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 2;
+                  background: rgba(8, 48, 74, .82); color: #fff; border-radius: 999px; padding: 7px 13px;
+                  font: 700 12px/1 var(--font-body); pointer-events: none; transition: opacity .3s; }
+  .st-360.was-used .st-drag-hint { opacity: 0; }
+  .st-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: -4px; }
+  .st-chip { border: 1px solid var(--line-soft, #d9e9f2); background: #f4fafd; color: var(--muted-strong);
+             border-radius: 999px; padding: 6px 12px; font: 700 12px/1 var(--font-body); cursor: pointer; }
+  .st-chip.is-on { background: var(--brand-cyan-deep); border-color: var(--brand-cyan-deep); color: #fff; }
+  .st-plush-body h3 { font-family: var(--font-display); font-size: 24px; color: var(--ink-deep); margin: 8px 0 6px; }
+  .st-plush-body p { margin: 0; color: var(--muted-strong); font-size: 15px; line-height: 1.55; }
+  .st-soon { display: inline-block; background: #fff4e5; color: #b8650a; border: 1px solid #ffd9a8; border-radius: 999px;
+             padding: 6px 12px; font: 800 11px/1 var(--font-body); letter-spacing: .7px; text-transform: uppercase; }
+  .st-price { margin: 14px 0; font: 700 20px/1 var(--font-display); color: var(--ink-deep); }
+  .st-price b { color: var(--brand-coral-deep); font-size: 26px; }
+  .st-preorder { width: 100%; justify-content: center; }
+  .st-plush-body .st-fine { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+  .st-packs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .st-pack { position: relative; background: #fff; border: 1px solid var(--line-soft, #d9e9f2); border-radius: 22px;
+             padding: 22px 16px 18px; text-align: center; box-shadow: 0 10px 26px rgba(10, 80, 120, 0.10);
+             display: flex; flex-direction: column; align-items: center; }
+  .st-pack.is-best { border: 2px solid var(--brand-mint); }
+  .st-best { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--grad-mint-btn);
+             color: #fff; border-radius: 999px; padding: 6px 12px; font: 800 11px/1 var(--font-body);
+             letter-spacing: .6px; text-transform: uppercase; white-space: nowrap; }
+  .st-coin { width: 72px; height: 72px; object-fit: contain; }
+  .st-pack-coins { font: 800 30px/1 var(--font-display); color: var(--ink-deep); margin-top: 10px; }
+  .st-pack-label { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+  .st-pack-bonus { font-size: 13px; font-weight: 700; color: var(--brand-mint-deep); margin: 8px 0 4px; }
+  .st-pack-price { font: 800 22px/1 var(--font-display); color: var(--ink-deep); margin: 6px 0 14px; }
+  .st-buy { width: 100%; justify-content: center; margin-top: auto; }
+  .st-note { margin: 20px auto 0; max-width: 760px; text-align: center; font-size: 14px; line-height: 1.6; color: var(--muted-strong); }
+  @media (max-width: 900px) { .st-plushies { grid-template-columns: 1fr; } .st-packs { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .st-packs { grid-template-columns: 1fr; } }
+
   @media (max-width: 900px) {
     .nav.nav-tabbed {
       width: calc(100vw - 16px);
@@ -1244,6 +1302,8 @@
   <div class="nav-tabs" id="pageTabs" role="tablist" aria-label="Pages">
     <button class="ptab is-on" type="button" role="tab" id="tabbtn-home"
             data-tab="home" aria-controls="panel-home" aria-selected="true">Home</button>
+    <button class="ptab" type="button" role="tab" id="tabbtn-store"
+            data-tab="store" aria-controls="panel-store" aria-selected="false" tabindex="-1">Store</button>
     <button class="ptab" type="button" role="tab" id="tabbtn-how"
             data-tab="how" aria-controls="panel-how" aria-selected="false" tabindex="-1">How to Play</button>
     <button class="ptab" type="button" role="tab" id="tabbtn-snap"
@@ -1402,6 +1462,124 @@
 </section>
 
 </div><!-- /panel-home -->
+
+<div class="cc-panel" id="panel-store" data-panel="store" role="tabpanel"
+     aria-labelledby="tabbtn-store">
+
+<!-- ============ STORE ============
+     Plushies on top (coming soon, Price: $?, Pre-order and a drag-to-spin
+     360° view built from the same five photos as the Bearded Seal Studios
+     product pages), then the Critter Coins packs. Every button is a plain
+     link to the real product on the Squarespace shop
+     (www.beardedsealstudios.com/shop), so it works even with JavaScript off.
+     Checkout and card details stay on Squarespace; squarespace_store.py
+     credits the coins to the game account. -->
+<section class="section store" id="store">
+  <div class="section-inner">
+    <div class="section-head">
+      <span class="eyebrow">★ The Store</span>
+      <h2>Shop Currents and Critters</h2>
+      <p>Weighted plushies straight from the deck, and Critter Coins for the online game.</p>
+    </div>
+
+    <h3 class="st-sub">Plushies</h3>
+    <div class="st-plushies">
+    <article class="st-plush" id="store-whale-shark-plush">
+      <div class="st-360" data-spin360 tabindex="0" role="group"
+             aria-label="Whale Shark Weighted Plush, 360 degree view. Drag or use the left and right arrow keys to spin it.">
+        <span class="st-360-tag">360° view</span>
+        <div class="st-stage">
+          <img class="st-frame is-on" data-view="0" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/c3e98e1d-376f-4f19-80a8-4ac2fcb580b5/ChatGPT+Image+Nov+14+2026+12_57_11+PM-1.png?format=750w" alt="Whale Shark Weighted Plush, front view" loading="eager" draggable="false"/>
+          <img class="st-frame" data-view="1" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/116796db-fc2a-4328-8e6b-668f7976b46f/ChatGPT+Image+Nov+14+2026+12_57_12+PM-3.png?format=750w" alt="Whale Shark Weighted Plush, left view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="2" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/9394efc5-3dc0-4cfe-aac3-033113f03a9c/ChatGPT+Image+Nov+14+2026+12_57_13+PM-5.png?format=750w" alt="Whale Shark Weighted Plush, back view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="3" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/642bf9bc-653d-4727-8cb5-b4d1a662d70b/ChatGPT+Image+Nov+14+2026+12_57_12+PM-4.png?format=750w" alt="Whale Shark Weighted Plush, right view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="4" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/921f5c20-9065-4de1-83e5-43f5a9eafbba/ChatGPT+Image+Nov+14+2026+12_57_13+PM-6.png?format=750w" alt="Whale Shark Weighted Plush, top view" loading="eager" decoding="async" draggable="false"/>
+        </div>
+        <button type="button" class="st-arrow st-prev" data-step="-1" aria-label="Spin left">‹</button>
+        <button type="button" class="st-arrow st-next" data-step="1" aria-label="Spin right">›</button>
+        <span class="st-drag-hint" aria-hidden="true">⟷ Drag to spin</span>
+      </div>
+      <div class="st-chips" role="group" aria-label="Pick a view"><button type="button" class="st-chip is-on" data-go="0" aria-pressed="true">Front</button><button type="button" class="st-chip" data-go="1" aria-pressed="false">Left</button><button type="button" class="st-chip" data-go="2" aria-pressed="false">Back</button><button type="button" class="st-chip" data-go="3" aria-pressed="false">Right</button><button type="button" class="st-chip" data-go="4" aria-pressed="false">Top</button></div>
+      <div class="st-plush-body">
+        <span class="st-soon">● Coming soon</span>
+        <h3>Whale Shark Weighted Plush</h3>
+        <p>The gentle giant of the deck, now something you can hold. A soft, weighted plush with a speckled back full of stars.</p>
+        <div class="st-price">Price: <b>$?</b></div>
+        <a class="btn btn-coral btn-lg st-preorder" href="https://www.beardedsealstudios.com/shop/p/whale-shark-plush" target="_blank" rel="noopener">Pre-order →</a>
+        <p class="st-fine">Launching February 2, 2027. The pre-order button takes you to its page on our Bearded Seal Studios shop.</p>
+      </div>
+    </article>
+    <article class="st-plush" id="store-loggerhead-sea-turtle-plush">
+      <div class="st-360" data-spin360 tabindex="0" role="group"
+             aria-label="Loggerhead Sea Turtle Weighted Plush, 360 degree view. Drag or use the left and right arrow keys to spin it.">
+        <span class="st-360-tag">360° view</span>
+        <div class="st-stage">
+          <img class="st-frame is-on" data-view="0" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/ca6edb72-3630-4ba0-a293-42d1318435e3/ChatGPT+Image+Nov+14+2026+12_57_11+PM-2.png?format=750w" alt="Loggerhead Sea Turtle Weighted Plush, front view" loading="eager" draggable="false"/>
+          <img class="st-frame" data-view="1" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/b47396c3-5399-4a36-931f-9dfccf7198a9/ChatGPT+Image+Nov+14+2026+12_57_14+PM-8.png?format=750w" alt="Loggerhead Sea Turtle Weighted Plush, left view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="2" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/8f1019f0-fec7-4040-ba58-c2de3bed5937/ChatGPT+Image+Nov+14+2026+12_57_15+PM-9.png?format=750w" alt="Loggerhead Sea Turtle Weighted Plush, back view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="3" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/43f35f3c-1290-4cbe-86b5-9e37b6cc28ae/ChatGPT+Image+Nov+14+2026+12_57_14+PM-7.png?format=750w" alt="Loggerhead Sea Turtle Weighted Plush, right view" loading="eager" decoding="async" draggable="false"/>
+          <img class="st-frame" data-view="4" src="https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/98116711-b53b-477d-a65d-a9209fb4f959/ChatGPT+Image+Nov+14+2026+12_57_15+PM-10.png?format=750w" alt="Loggerhead Sea Turtle Weighted Plush, top view" loading="eager" decoding="async" draggable="false"/>
+        </div>
+        <button type="button" class="st-arrow st-prev" data-step="-1" aria-label="Spin left">‹</button>
+        <button type="button" class="st-arrow st-next" data-step="1" aria-label="Spin right">›</button>
+        <span class="st-drag-hint" aria-hidden="true">⟷ Drag to spin</span>
+      </div>
+      <div class="st-chips" role="group" aria-label="Pick a view"><button type="button" class="st-chip is-on" data-go="0" aria-pressed="true">Front</button><button type="button" class="st-chip" data-go="1" aria-pressed="false">Left</button><button type="button" class="st-chip" data-go="2" aria-pressed="false">Back</button><button type="button" class="st-chip" data-go="3" aria-pressed="false">Right</button><button type="button" class="st-chip" data-go="4" aria-pressed="false">Top</button></div>
+      <div class="st-plush-body">
+        <span class="st-soon">● Coming soon</span>
+        <h3>Loggerhead Sea Turtle Weighted Plush</h3>
+        <p>A cozy, weighted Loggerhead with a big patterned shell, straight from the Currents and Critters deck.</p>
+        <div class="st-price">Price: <b>$?</b></div>
+        <a class="btn btn-coral btn-lg st-preorder" href="https://www.beardedsealstudios.com/shop/p/loggerhead-sea-turtle-plush" target="_blank" rel="noopener">Pre-order →</a>
+        <p class="st-fine">Launching February 2, 2027. The pre-order button takes you to its page on our Bearded Seal Studios shop.</p>
+      </div>
+    </article>
+    </div>
+
+    <h3 class="st-sub" id="store-coins">Critter Coins</h3>
+    <div class="st-packs">
+      <article class="st-pack">
+        
+        <img class="st-coin" src="assets/critters/critter-coin.webp" alt="" width="72" height="72" loading="lazy"/>
+        <div class="st-pack-coins">1,000</div>
+        <div class="st-pack-label">Critter Coins</div>
+        <div class="st-pack-bonus">Starter pack</div>
+        <div class="st-pack-price">$1.00</div>
+        <a class="btn btn-mint st-buy" href="https://www.beardedsealstudios.com/shop/p/critter-coins-1000" target="_blank" rel="noopener">Buy 1,000 coins →</a>
+      </article>
+      <article class="st-pack">
+        
+        <img class="st-coin" src="assets/critters/critter-coin.webp" alt="" width="72" height="72" loading="lazy"/>
+        <div class="st-pack-coins">5,250</div>
+        <div class="st-pack-label">Critter Coins</div>
+        <div class="st-pack-bonus">+5% bonus</div>
+        <div class="st-pack-price">$5.00</div>
+        <a class="btn btn-mint st-buy" href="https://www.beardedsealstudios.com/shop/p/critter-coins-5250" target="_blank" rel="noopener">Buy 5,250 coins →</a>
+      </article>
+      <article class="st-pack">
+        
+        <img class="st-coin" src="assets/critters/critter-coin.webp" alt="" width="72" height="72" loading="lazy"/>
+        <div class="st-pack-coins">11,500</div>
+        <div class="st-pack-label">Critter Coins</div>
+        <div class="st-pack-bonus">+15% bonus</div>
+        <div class="st-pack-price">$10.00</div>
+        <a class="btn btn-mint st-buy" href="https://www.beardedsealstudios.com/shop/p/critter-coins-11500" target="_blank" rel="noopener">Buy 11,500 coins →</a>
+      </article>
+      <article class="st-pack is-best">
+        <span class="st-best">Best value</span>
+        <img class="st-coin" src="assets/critters/critter-coin.webp" alt="" width="72" height="72" loading="lazy"/>
+        <div class="st-pack-coins">25,000</div>
+        <div class="st-pack-label">Critter Coins</div>
+        <div class="st-pack-bonus">+25% bonus</div>
+        <div class="st-pack-price">$20.00</div>
+        <a class="btn btn-mint st-buy" href="https://www.beardedsealstudios.com/shop/p/critter-coins-25000" target="_blank" rel="noopener">Buy 25,000 coins →</a>
+      </article>
+    </div>
+    <p class="st-note">Check out with the same email you sign in to the game with and the coins land on your account automatically. Used a different email? We'll email you a code starting with <b>CC-</b> to type into <b>Redeem a Code</b> in the game's Store. Critter Coins are cosmetic only and never affect gameplay.</p>
+  </div>
+</section>
+
+</div><!-- /panel-store -->
 
 <div class="cc-panel" id="panel-how" data-panel="how" role="tabpanel"
      aria-labelledby="tabbtn-how">
@@ -3298,6 +3476,83 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateNavH
     get current() { return open; },
     names: buttons.map(b => b.getAttribute('data-tab'))
   };
+})();
+
+// ── STORE: 360° plush viewer ─────────────────────────────────────
+// Five photos per plush: Front, Left, Back, Right go round in a ring, Top
+// sits above them. Drag (mouse, pen or finger), the arrows, the view chips,
+// or the arrow keys when the viewer has focus. Vertical swipes still scroll
+// the page (touch-action: pan-y). Spins itself slowly until someone touches
+// it, unless the visitor prefers reduced motion.
+(function () {
+  const RING = [0, 1, 2, 3];            // Front, Left, Back, Right
+  const STEP_PX = 38;                   // drag distance per frame
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('[data-spin360]').forEach(function (box) {
+    const frames = Array.prototype.slice.call(box.querySelectorAll('.st-frame'));
+    const chips = Array.prototype.slice.call(box.parentNode.querySelectorAll('.st-chip'));
+    if (!frames.length) return;
+    let cur = 0, auto = null;
+    function set(i) {
+      cur = i;
+      frames.forEach(function (f) { f.classList.toggle('is-on', +f.getAttribute('data-view') === i); });
+      chips.forEach(function (c) {
+        const on = +c.getAttribute('data-go') === i;
+        c.classList.toggle('is-on', on); c.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function step(d) {
+      const at = RING.indexOf(cur);
+      const from = at < 0 ? 0 : at;      // from Top, spinning goes back round from Front
+      set(RING[(from + d + RING.length * 8) % RING.length]);
+    }
+    function used() {
+      box.classList.add('was-used');
+      if (auto) { clearInterval(auto); auto = null; }
+    }
+    box.addEventListener('click', function (e) {
+      const b = e.target.closest('[data-step]');
+      if (b) { used(); step(+b.getAttribute('data-step')); }
+    });
+    chips.forEach(function (c) {
+      c.addEventListener('click', function () { used(); set(+c.getAttribute('data-go')); });
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight') { used(); step(1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { used(); step(-1); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { used(); set(4); e.preventDefault(); }
+      else if (e.key === 'ArrowDown') { used(); set(0); e.preventDefault(); }
+    });
+    let startX = null, moved = 0, pid = null;
+    box.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button')) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      used(); startX = e.clientX; moved = 0; pid = e.pointerId;
+      try { box.setPointerCapture(pid); } catch (_) {}
+      box.classList.add('is-dragging');
+    });
+    box.addEventListener('pointermove', function (e) {
+      if (startX === null || e.pointerId !== pid) return;
+      const dx = e.clientX - startX;
+      const n = Math.trunc(dx / STEP_PX);
+      if (n !== moved) { step(n - moved > 0 ? 1 : -1); moved += (n - moved > 0 ? 1 : -1); }
+      if (Math.abs(dx) > 4) e.preventDefault();
+    });
+    function end(e) {
+      if (e && pid !== null && e.pointerId !== pid) return;
+      startX = null; pid = null; box.classList.remove('is-dragging');
+    }
+    box.addEventListener('pointerup', end);
+    box.addEventListener('pointercancel', end);
+    box.addEventListener('lostpointercapture', end);
+    box.addEventListener('dragstart', function (e) { e.preventDefault(); });
+    if (!reduce) auto = setInterval(function () {
+      if (!box.offsetParent) return;      // its page is not open
+      step(1);
+    }, 1400);
+    window.ccSpin360 = window.ccSpin360 || [];
+    window.ccSpin360.push({ box: box, get view() { return cur; }, set: set, step: step });
+  });
 })();
 
 // ── SITE SEARCH ──────────────────────────────────────────────────
