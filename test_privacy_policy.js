@@ -77,9 +77,9 @@ const TEXT = String(HTML_DOC || "")
         `the policy renders a substantial document (got ${String(HTML_DOC).length} chars)`);
   check(Array.isArray(SECTIONS) && SECTIONS.length === 28,
         `all 28 sections are published, got ${SECTIONS && SECTIONS.length}`);
-  check(win.CC_PRIVACY_UPDATED === "October 23, 2026",
+  check(win.CC_PRIVACY_UPDATED === "November 20, 2026",
         `the last-updated date is stated, got ${win.CC_PRIVACY_UPDATED}`);
-  check(TEXT.includes("Last updated: October 23, 2026"),
+  check(TEXT.includes("Last updated: November 20, 2026"),
         "the last-updated date is printed in the document, not just exported");
 
   // The contents list and the headings come from ONE array: prove it by

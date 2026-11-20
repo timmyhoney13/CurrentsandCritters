@@ -69,7 +69,7 @@
   //     deadline the code does not guarantee.
   // ────────────────────────────────────────────────────────────────────────
 
-  var UPDATED = "October 23, 2026";
+  var UPDATED = "November 20, 2026";
   var EMAIL   = "timothy.honey@beardedsealstudios.com";
 
   // ── The document ────────────────────────────────────────────────
@@ -416,7 +416,7 @@
         ]),
     },
     {
-      title: "The Plushy Vote",
+      title: "The Plushy Vote and Plush Reservations",
       body:
         "<p>Our website asks which critter you would most like to see made as a plush toy. Voting takes no account and no sign-in.</p>" +
         "<p>When you vote we store:</p>" +
@@ -432,7 +432,15 @@
         "<p>The vote form also has a separate checkbox, which is never ticked for you, offering to add you to the newsletter. Ticking that box, and only ticking that box, subscribes you. If you tick it we store your email address on the newsletter list as described in the Newsletter and Marketing Emails section, recorded as having been signed up from the plushy vote, and every newsletter we send carries a working unsubscribe link.</p>" +
         "<p>The newsletter is sent by email, so ticking that box does nothing if you gave a phone number instead. We will tell you so rather than failing quietly.</p>" +
         "<p>You can remove it yourself at any time by returning to the vote in the same browser, clearing the field, and sending your vote again. You can also email us and ask us to remove it.</p>" +
-        "<p>Vote totals are published on the page as counts only. Your email address, your phone number, and your network address are never shown publicly, and are never shown to other voters.</p>",
+        "<p>Vote totals are published on the page as counts only. Your email address, your phone number, and your network address are never shown publicly, and are never shown to other voters.</p>" +
+        "<p><strong>Plush reservations.</strong> The pre-order page on currentsandcritters.com and beardedsealstudios.com lets you reserve plushies before paid pre-orders open. A reservation is free and takes no payment details. When you reserve we store:</p>" +
+        ul([
+          "Your first and last name and your email address",
+          "The country it would ship to, and a ZIP or postal code only if you choose to give one",
+          "How many of each plushie you reserved, and the totals we work out from our own prices",
+          "The date and time you reserved or last changed your reservation, which website you used, and the network address it came from, used to limit automated submissions",
+        ]) +
+        "<p>We use these details only to manage your reservation: to email you when pre-orders open so you can confirm and pay, and to estimate shipping. Each email address holds one reservation, so reserving again with the same address updates it. Reserving does not subscribe you to the newsletter; the separate newsletter box on the form, which is never ticked for you, is the only thing that does. Email us at any time to change, cancel, or delete your reservation.</p>",
     },
     {
       title: "Messages and Communication",

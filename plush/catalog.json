@@ -1,0 +1,63 @@
+{
+  "_readme": "THE ONE PLUSH CATALOG. Read by plush/preorder.js on currentsandcritters.com AND on beardedsealstudios.com (it loads this file from currentsandcritters.com), and by plush_reserve.py on the game server, which recomputes every total from it. Change a price, the free-shipping threshold or a spec HERE and nowhere else. test_plush_reserve.py and test_preorder_page.js pin the static copies in index.html to this file.",
+  "version": 1,
+  "currency": "USD",
+  "priceNote": "+ shipping and applicable sales tax",
+  "launchDate": "2027-02-02",
+  "launchLabel": "February 2, 2027",
+  "freeShippingMin": 3,
+  "freeShippingCountries": ["US"],
+  "maxPerItem": 10,
+  "maxPerOrder": 20,
+  "pledge": "5% goes to ocean conservation",
+  "features": [
+    "Premium ultra-soft plush fabric",
+    "Securely enclosed weighted filling",
+    "No heating components"
+  ],
+  "unlock": "Every plushie in the first run comes with a hang-tag code that unlocks the exclusive Fish critter in the online game. First run only.",
+  "products": [
+    {
+      "id": "whale-shark",
+      "name": "Weighted Whale Shark",
+      "shopName": "Whale Shark Weighted Plush",
+      "sku": "CC-PLUSH-WHALESHARK",
+      "priceCents": 3999,
+      "sizeCm": 50,
+      "weightLb": 2.5,
+      "family": "Crosscurrent critter",
+      "blurb": "The gentle giant of the deck, now something you can hold. A speckled back full of stars and the friendliest grin in the ocean.",
+      "fact": "Real whale sharks are the largest fish in the sea, and they live almost entirely on plankton.",
+      "shopUrl": "https://www.beardedsealstudios.com/shop/p/whale-shark-plush",
+      "scale": 0.82,
+      "frames": [
+        { "label": "Front", "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/c3e98e1d-376f-4f19-80a8-4ac2fcb580b5/ChatGPT+Image+Nov+14+2026+12_57_11+PM-1.png" },
+        { "label": "Left",  "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/116796db-fc2a-4328-8e6b-668f7976b46f/ChatGPT+Image+Nov+14+2026+12_57_12+PM-3.png" },
+        { "label": "Back",  "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/9394efc5-3dc0-4cfe-aac3-033113f03a9c/ChatGPT+Image+Nov+14+2026+12_57_13+PM-5.png" },
+        { "label": "Right", "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/642bf9bc-653d-4727-8cb5-b4d1a662d70b/ChatGPT+Image+Nov+14+2026+12_57_12+PM-4.png" },
+        { "label": "Top",   "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/921f5c20-9065-4de1-83e5-43f5a9eafbba/ChatGPT+Image+Nov+14+2026+12_57_13+PM-6.png" }
+      ]
+    },
+    {
+      "id": "loggerhead-sea-turtle",
+      "name": "Weighted Loggerhead Sea Turtle",
+      "shopName": "Loggerhead Sea Turtle Weighted Plush",
+      "sku": "CC-PLUSH-LOGGERHEAD",
+      "priceCents": 3999,
+      "sizeCm": 50,
+      "weightLb": 2.5,
+      "family": "Crosscurrent critter",
+      "blurb": "A sunny patchwork shell, sea-glass flippers and a sweet little smile, ready for your shelf, your couch or your desk.",
+      "fact": "Real loggerheads navigate by Earth's magnetic field, crossing thousands of miles of ocean to nest on the beach where they hatched.",
+      "shopUrl": "https://www.beardedsealstudios.com/shop/p/loggerhead-sea-turtle-plush",
+      "scale": 1,
+      "frames": [
+        { "label": "Front", "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/ca6edb72-3630-4ba0-a293-42d1318435e3/ChatGPT+Image+Nov+14+2026+12_57_11+PM-2.png" },
+        { "label": "Left",  "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/b47396c3-5399-4a36-931f-9dfccf7198a9/ChatGPT+Image+Nov+14+2026+12_57_14+PM-8.png" },
+        { "label": "Back",  "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/8f1019f0-fec7-4040-ba58-c2de3bed5937/ChatGPT+Image+Nov+14+2026+12_57_15+PM-9.png" },
+        { "label": "Right", "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/43f35f3c-1290-4cbe-86b5-9e37b6cc28ae/ChatGPT+Image+Nov+14+2026+12_57_14+PM-7.png" },
+        { "label": "Top",   "src": "https://images.squarespace-cdn.com/content/v1/6a6ceb0f50ff8b7f36732ec7/98116711-b53b-477d-a65d-a9209fb4f959/ChatGPT+Image+Nov+14+2026+12_57_15+PM-10.png" }
+      ]
+    }
+  ]
+}

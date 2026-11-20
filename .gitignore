@@ -258,6 +258,20 @@
 # and nothing anybody typed, and the page and the server really being wired to
 # each other.
 !test_plush_vote.py
+# Plush RESERVATIONS: the pre-order page on currentsandcritters.com/preorder AND
+# beardedsealstudios.com/preorder (which loads plush/preorder.js and
+# plush/catalog.json from this site). plush_reserve.py is imported at module
+# scope by multiplayer_server.py and COPY'd by the Dockerfile, so if it is not
+# committed the game server does not boot. plush/catalog.json is the ONE
+# catalog: the page and the server both price from it.
+!plush_reserve.py
+!test_plush_reserve.py
+!test_preorder_page.js
+!preorder.html
+!plush/
+!plush/catalog.json
+!plush/preorder.js
+!plush/preorder.css
 # The browser half of the vote, and the only thing that can see a vote being
 # erased: it serves the real index.html over http (a file:// page has no usable
 # localStorage, so a queue test there would pass while testing nothing), votes

@@ -53,6 +53,7 @@ import welcome_server
 import account_email
 import partner_contact
 import plush_vote
+import plush_reserve
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -16230,6 +16231,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if plush_vote.handle_get(self, parsed):
             return
 
+        # The plush reservation form's status (/api/plush/reserve). Public: the
+        # pre-order page on both websites calls it on load, which also wakes a
+        # sleeping server before anybody presses Reserve.
+        if plush_reserve.handle_get(self, parsed):
+            return
+
         # Did the webhook already fulfil this checkout? Polled by /thanks so the
         # buyer sees a confirmation only once the payment is really recorded.
         if parsed.path == "/api/stripe/session-status":
@@ -16814,6 +16821,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # the reader whose opinion this wants has never signed into anything.
         # The ballot carries a random id the browser made for itself, which is
         # a cursor and not a proof, so the ceiling is held on the address.
+        # The plush RESERVATION form (/api/plush/reserve), on the pre-order page
+        # of both websites. No account and no payment, by design: it records who
+        # wants which plushies so the studio can email them when paid pre-orders
+        # open. Every total is recomputed from plush/catalog.json.
+        if plush_reserve.handle_post(self, parsed, body):
+            return
+
         if plush_vote.handle_post(self, parsed, body):
             return
 
@@ -18332,6 +18346,18 @@ def main() -> None:
         public_signup=newsletter_server.public_signup,
         newsletter_source=newsletter_server.SOURCE_PLUSHY,
     )
+    # Plush reservations: same Firestore, same newsletter consent rules, and a
+    # best-effort note to the studio inbox for each one.
+    plush_reserve.init(
+        get_firestore=_get_firestore,
+        public_signup=newsletter_server.public_signup,
+        newsletter_source=newsletter_server.SOURCE_PLUSH_RESERVE,
+        notify=plush_reserve.email_admin,
+    )
+    print(f"[reserve] plush reservations {'ON' if plush_reserve.enabled() else 'OFF (no Firestore)'}: "
+          f"{len(plush_reserve.PRODUCT_IDS)} plushies at "
+          f"{', '.join(plush_reserve.money(c) for c in plush_reserve.PRICE_CENTS.values())}, "
+          f"free shipping from {plush_reserve.FREE_SHIPPING_MIN}")
     if plush_vote.enabled():
         print(f"[plush] plushy poll ON: {len(plush_vote.SLUGS)} critters on the ballot, "
               f"up to {plush_vote.MAX_PICKS} picks each, "

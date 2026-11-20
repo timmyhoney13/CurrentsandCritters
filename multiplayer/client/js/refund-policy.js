@@ -131,7 +131,8 @@
           "<p>The physical game is being backed through Kickstarter. If you pledge there, your pledge is governed by Kickstarter’s own terms as well as ours, and Kickstarter handles the payment.</p>" +
           callout("Nothing on our websites is a promise of a delivery date for the physical card game. Making a card game takes as long as it takes, and we would rather say so than invent a date.") +
           "<p>Prices, contents, art, and card lists shown for the physical game are what we currently intend, and they may change while the game is still being made.</p>" +
-          "<p>If we ever begin taking preorders directly, this policy will be updated first to explain what you are paying for, when you can cancel, what happens on a delay, and how to get your money back.</p>",
+          "<p>If we ever begin taking preorders directly, this policy will be updated first to explain what you are paying for, when you can cancel, what happens on a delay, and how to get your money back.</p>" +
+          "<p><strong>Plush reservations.</strong> Our pre-order page lets you reserve the Weighted Whale Shark and Weighted Loggerhead Sea Turtle plushies. A reservation is free, takes no payment details, and is not binding on you. Nothing is charged, so there is nothing to refund. When paid plush pre-orders open we will email you to confirm and pay, and this policy will be updated before then with the price, shipping, cancellation, delay and refund terms that apply.</p>",
       },
       {
         title: "Ocean Conservation",

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="/plush/preorder.css?v=2026-11-20.1"/>
 <!-- Game Night band. The banner's markup is built by /js/game-night.js, which
      the GAME serves too: Vercel rewrites /css/:file and /js/:file to
      multiplayer/client/, so both hosts render the identical banner from one
@@ -1223,7 +1224,32 @@
              padding: 6px 12px; font: 800 11px/1 var(--font-body); letter-spacing: .7px; text-transform: uppercase; }
   .st-price { margin: 14px 0; font: 700 20px/1 var(--font-display); color: var(--ink-deep); }
   .st-price b { color: var(--brand-coral-deep); font-size: 26px; }
-  .st-preorder { width: 100%; justify-content: center; }
+  .st-preorder { flex: 1; min-width: 150px; justify-content: center; }
+  .st-soon.is-open { background: #e6fbf2; color: #138a5c; border-color: #a9e8cf; }
+  .st-price { line-height: 1.35; font-size: 15px; font-weight: 600; color: var(--muted-strong); }
+  .st-price b { font: 700 30px/1 var(--font-display); color: var(--ink-deep); margin-right: 4px; }
+  .st-specs { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .st-specs li { background: #eef8fd; border-radius: 999px; padding: 6px 11px; font-size: 13px; color: var(--muted-strong); }
+  .st-specs li b { color: var(--ink-deep); }
+  .st-buyrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .st-promo { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; padding: 12px 16px; border-radius: 16px;
+              background: linear-gradient(90deg, #e6fbf2, #e3f7ff); border: 1px solid #b9e9d6; color: var(--ink-deep);
+              text-decoration: none; font-size: 15px; line-height: 1.4; }
+  .st-promo:hover { border-color: var(--brand-mint); }
+  .st-promo-tag { flex: none; background: var(--grad-mint-btn); color: #fff; border-radius: 999px; padding: 6px 11px;
+                  font: 800 11px/1 var(--font-body); letter-spacing: .6px; text-transform: uppercase; }
+  .st-promo-go { margin-left: auto; font-weight: 800; color: var(--brand-mint-deep); }
+  .st-cart { margin-top: 20px; }
+  /* The hero's one-line plush callout, under the three CTAs. */
+  .hero-plush { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; max-width: 100%;
+                background: rgba(255,255,255,.88); border: 1px solid rgba(255,255,255,.95); border-radius: 999px;
+                padding: 7px 16px 7px 7px; color: var(--ink-deep); text-decoration: none; font-size: 14px; line-height: 1.35;
+                box-shadow: 0 6px 18px rgba(8,52,77,.10); transition: transform .2s var(--ease-out), box-shadow .2s; }
+  .hero-plush:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(8,52,77,.16); }
+  .hero-plush b { color: var(--ink-deep); }
+  .hero-plush-new { flex: none; background: var(--grad-mint-btn); color: #fff; border-radius: 999px; padding: 6px 10px;
+                    font: 800 11px/1 var(--font-body); letter-spacing: .6px; text-transform: uppercase; }
+  @media (max-width: 520px) { .hero-plush { border-radius: 18px; font-size: 13px; text-align: left; } }
   .st-plush-body .st-fine { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
   .st-packs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
   .st-pack { position: relative; background: #fff; border: 1px solid var(--line-soft, #d9e9f2); border-radius: 22px;
@@ -1395,6 +1421,11 @@
       <a class="btn btn-primary btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List</a>
       <a class="btn btn-outline btn-lg" href="#how">Learn the Rules</a>
     </div>
+    <a class="hero-plush" href="/preorder">
+      <span class="hero-plush-new">New</span>
+      <span>Reserve the first plushies · <b>$39.99</b> + shipping &amp; tax · Free shipping on 3+</span>
+      <span aria-hidden="true">→</span>
+    </a>
 
     <div class="hero-hand">
       <img class="card" src="assets/critters/loggerhead-sea-turtle.png" alt=""/>
@@ -1470,13 +1501,16 @@
      aria-labelledby="tabbtn-store">
 
 <!-- ============ STORE ============
-     Plushies on top (coming soon, Price: $?, Pre-order and a drag-to-spin
-     360° view built from the same five photos as the Bearded Seal Studios
-     product pages), then the Critter Coins packs. Every button is a plain
-     link to the real product on the Squarespace shop
-     (www.beardedsealstudios.com/shop), so it works even with JavaScript off.
-     Checkout and card details stay on Squarespace; squarespace_store.py
-     credits the coins to the game account. -->
+     Plushies on top: $39.99 each + shipping and applicable sales tax, a
+     quantity stepper on each card and the free-shipping bar under them, all
+     driven by /plush/preorder.js from /plush/catalog.json (the same catalog
+     the reservation server recomputes every total from). Reserve goes to
+     /preorder, a real link that works with JavaScript off and carries the
+     quantities picked here. Paid pre-orders are not open yet, so this takes a
+     free reservation and nothing is charged. Then the Critter Coins packs:
+     every Buy button is a plain link to the real product on the Squarespace
+     shop (www.beardedsealstudios.com/shop); squarespace_store.py credits the
+     coins to the game account. -->
 <section class="section store" id="store">
   <div class="section-inner">
     <div class="section-head">
@@ -1486,6 +1520,11 @@
     </div>
 
     <h3 class="st-sub">Plushies</h3>
+    <a class="st-promo" href="/preorder">
+      <span class="st-promo-tag">Free shipping</span>
+      <span><b>Free standard shipping when you buy 3 or more plushies.</b> Mix and match any designs.</span>
+      <span class="st-promo-go" aria-hidden="true">→</span>
+    </a>
     <div class="st-plushies">
     <article class="st-plush" id="store-whale-shark-plush">
       <div class="st-360" data-spin360 tabindex="0" role="group"
@@ -1504,12 +1543,22 @@
       </div>
       <div class="st-chips" role="group" aria-label="Pick a view"><button type="button" class="st-chip is-on" data-go="0" aria-pressed="true">Front</button><button type="button" class="st-chip" data-go="1" aria-pressed="false">Left</button><button type="button" class="st-chip" data-go="2" aria-pressed="false">Back</button><button type="button" class="st-chip" data-go="3" aria-pressed="false">Right</button><button type="button" class="st-chip" data-go="4" aria-pressed="false">Top</button></div>
       <div class="st-plush-body">
-        <span class="st-soon">● Coming soon</span>
-        <h3>Whale Shark Weighted Plush</h3>
-        <p>The gentle giant of the deck, now something you can hold. A soft, weighted plush with a speckled back full of stars.</p>
-        <div class="st-price">Price: <b>$?</b></div>
-        <a class="btn btn-coral btn-lg st-preorder" href="https://www.beardedsealstudios.com/shop/p/whale-shark-plush" target="_blank" rel="noopener">Pre-order →</a>
-        <p class="st-fine">Launching February 2, 2027. The pre-order button takes you to its page on our Bearded Seal Studios shop.</p>
+        <span class="st-soon is-open">● Reservations open</span>
+        <h3>Weighted Whale Shark</h3>
+        <p>The gentle giant of the deck, now something you can hold. A speckled back full of stars and the friendliest grin in the ocean.</p>
+        <div class="st-price"><b>$39.99</b> + shipping and applicable sales tax</div>
+        <ul class="st-specs">
+          <li><b>50 cm</b> (about 19.7 in)</li>
+          <li><b>2.5 lbs</b> weighted</li>
+          <li>Premium ultra-soft plush fabric</li>
+          <li>Securely enclosed weighted filling</li>
+          <li>No heating components</li>
+        </ul>
+        <div class="st-buyrow">
+          <span class="st-qty" data-ccpo-qty="whale-shark"></span>
+          <a class="btn btn-coral btn-lg st-preorder" href="/preorder?add=whale-shark">Reserve →</a>
+        </div>
+        <p class="st-fine">Free to reserve, nothing is charged today. Launching February 2, 2027.</p>
       </div>
     </article>
     <article class="st-plush" id="store-loggerhead-sea-turtle-plush">
@@ -1529,14 +1578,31 @@
       </div>
       <div class="st-chips" role="group" aria-label="Pick a view"><button type="button" class="st-chip is-on" data-go="0" aria-pressed="true">Front</button><button type="button" class="st-chip" data-go="1" aria-pressed="false">Left</button><button type="button" class="st-chip" data-go="2" aria-pressed="false">Back</button><button type="button" class="st-chip" data-go="3" aria-pressed="false">Right</button><button type="button" class="st-chip" data-go="4" aria-pressed="false">Top</button></div>
       <div class="st-plush-body">
-        <span class="st-soon">● Coming soon</span>
-        <h3>Loggerhead Sea Turtle Weighted Plush</h3>
-        <p>A cozy, weighted Loggerhead with a big patterned shell, straight from the Currents and Critters deck.</p>
-        <div class="st-price">Price: <b>$?</b></div>
-        <a class="btn btn-coral btn-lg st-preorder" href="https://www.beardedsealstudios.com/shop/p/loggerhead-sea-turtle-plush" target="_blank" rel="noopener">Pre-order →</a>
-        <p class="st-fine">Launching February 2, 2027. The pre-order button takes you to its page on our Bearded Seal Studios shop.</p>
+        <span class="st-soon is-open">● Reservations open</span>
+        <h3>Weighted Loggerhead Sea Turtle</h3>
+        <p>A sunny patchwork shell, sea-glass flippers and a sweet little smile, straight from the Currents and Critters deck.</p>
+        <div class="st-price"><b>$39.99</b> + shipping and applicable sales tax</div>
+        <ul class="st-specs">
+          <li><b>50 cm</b> (about 19.7 in)</li>
+          <li><b>2.5 lbs</b> weighted</li>
+          <li>Premium ultra-soft plush fabric</li>
+          <li>Securely enclosed weighted filling</li>
+          <li>No heating components</li>
+        </ul>
+        <div class="st-buyrow">
+          <span class="st-qty" data-ccpo-qty="loggerhead-sea-turtle"></span>
+          <a class="btn btn-coral btn-lg st-preorder" href="/preorder?add=loggerhead-sea-turtle">Reserve →</a>
+        </div>
+        <p class="st-fine">Free to reserve, nothing is charged today. Launching February 2, 2027.</p>
       </div>
     </article>
+    </div>
+
+    <!-- The free-shipping bar and the running total for the two cards above.
+         The noscript line is the same promise for a reader with JavaScript off. -->
+    <div class="st-cart" data-cc-preorder="compact" data-site="cc" data-href="/preorder">
+      <noscript><p class="st-note"><b>Free standard shipping when you buy 3 or more plushies.</b>
+        <a href="/preorder">Reserve yours →</a></p></noscript>
     </div>
 
     <h3 class="st-sub" id="store-coins">Critter Coins</h3>
@@ -1944,9 +2010,9 @@
 
     <div class="rd-more">
       <div>
-        <h3>The first plushies are planned for February 2, 2027</h3>
-        <p>Join the email list to hear the moment pre-orders open, before the first run is gone.</p>
-        <a class="btn btn-outline btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
+        <h3>Reserve a first-run plushie</h3>
+        <p>The first plushies launch February 2, 2027: $39.99 each + shipping and applicable sales tax, with free standard shipping when you buy 3 or more. Reserving is free.</p>
+        <a class="btn btn-outline btn-lg" href="/preorder">Reserve a Plushie →</a>
       </div>
       <div>
         <h3>Bought something on this website?</h3>
@@ -4479,5 +4545,6 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateNavH
 })();
 </script>
 
+<script src="/plush/preorder.js?v=2026-11-20.1" defer></script>
 </body>
 </html>

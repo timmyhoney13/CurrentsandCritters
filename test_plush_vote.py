@@ -900,7 +900,8 @@ class TestNewsletterOptIn(unittest.TestCase):
     def test_the_privacy_policy_describes_the_opt_in(self):
         pol = open(os.path.join(ROOT, "multiplayer", "client", "js",
                                 "privacy-policy.js"), encoding="utf-8").read()
-        section = pol[pol.index('title: "The Plushy Vote"'):]
+        # The section also covers plush reservations now, so match its title's start.
+        section = pol[pol.index('title: "The Plushy Vote'):]
         section = section[:section.index('title: "Messages and Communication"')]
         self.assertIn("never ticked for you", section)
         self.assertIn("unsubscribe", section.lower())

@@ -12,6 +12,8 @@ live_game_viewer.html
 *.json
 !vercel.json
 !package.json
+# The ONE plush catalog: the pre-order page fetches it, on both websites.
+!plush/catalog.json
 *.txt
 *.md
 Dockerfile

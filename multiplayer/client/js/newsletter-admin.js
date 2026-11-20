@@ -124,6 +124,7 @@
     { id: "dashboard",   icon: "◎", label: "Dashboard" },
     { id: "subscribers", label: "Subscribers" },
     { id: "plushy",      label: "Plushy Vote" },
+    { id: "reservations", label: "Plush Reservations" },
     { id: "compose",     icon: "✎", label: "Compose" },
     { id: "drafts",      icon: "▤", label: "Drafts" },
     { id: "sent",        icon: "✓", label: "Sent" },
@@ -145,7 +146,7 @@
       }
       b.addEventListener("click", function () { go(s.id); });
       nav.appendChild(b);
-      if (i === 4) nav.appendChild(el("div", "n-nav-sep"));
+      if (s.id === "drafts") nav.appendChild(el("div", "n-nav-sep"));
 
       var o = document.createElement("option");
       o.value = s.id; o.textContent = s.label;
@@ -212,7 +213,8 @@
     ({
       dashboard: viewDashboard, subscribers: viewSubscribers, compose: viewCompose,
       drafts: viewDrafts, sent: viewSent, progress: viewProgress,
-      audit: viewAudit, settings: viewSettings, plushy: viewPlushy
+      audit: viewAudit, settings: viewSettings, plushy: viewPlushy,
+      reservations: viewReservations
     }[state.section] || viewDashboard)(v);
   }
 
@@ -1502,6 +1504,93 @@
       document.body.appendChild(a); a.click();
       setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
       toast("Exported " + num(d.rows) + " row(s).", "good");
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     PLUSH RESERVATIONS
+     The pre-order page on currentsandcritters.com/preorder and
+     beardedsealstudios.com/preorder. Free, no payment taken: these are
+     the people to email when paid pre-orders open. Every total here was
+     recomputed on the server from plush/catalog.json. Read-only, and a
+     reservation is not a newsletter signup (the separate box is).
+     ══════════════════════════════════════════════════════════════ */
+  function money(c) { c = Number(c) || 0; return "$" + Math.floor(c / 100).toLocaleString() + "." + ("0" + (c % 100)).slice(-2); }
+
+  function viewReservations(v) {
+    v.appendChild(sectionHead("Plush reservations",
+      "Who reserved which plushies on the pre-order page. No payment has been taken from anyone here."));
+    var host = el("div"); v.appendChild(host);
+    loading(host);
+    var gen = renderGen;
+
+    api("reservations").then(function (d) {
+      if (stale(gen)) return;
+      host.innerHTML = "";
+      if (!d.ok) { host.appendChild(el("div", "n-empty", d.error || "Could not read the reservations.")); return; }
+      if (!d.enabled) {
+        host.appendChild(el("div", "n-empty",
+          "Reservations are not being stored on this deploy: the server has no Firestore."));
+        return;
+      }
+      var cards = el("div", "n-cards");
+      cards.appendChild(card("Reservations", num(d.reservations), "one per email address"));
+      cards.appendChild(card("Plushies reserved", num(d.plushies), "all designs"));
+      (d.perProduct || []).forEach(function (p) { cards.appendChild(card(p.name, num(p.qty), "reserved")); });
+      cards.appendChild(card("Free-shipping orders", num(d.freeShippingOrders), "3 or more plushies, U.S."));
+      cards.appendChild(card("Merchandise subtotal", money(d.subtotalCents), "before shipping and tax"));
+      host.appendChild(cards);
+
+      var head = el("div", "n-row-between");
+      head.appendChild(el("h2", "n-h2", "Reservations (" + num((d.rows || []).length) + ")"));
+      var exp = el("button", "n-btn small", "Export CSV");
+      exp.addEventListener("click", function () {
+        exp.disabled = true; exp.textContent = "Exporting…";
+        api("reservations-export", {}).then(function (x) {
+          exp.disabled = false; exp.textContent = "Export CSV";
+          if (!x.ok) { toast(x.error || "Export failed.", "bad"); return; }
+          var blob = new Blob([x.csv], { type: "text/csv;charset=utf-8" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = x.filename || "plush-reservations.csv";
+          document.body.appendChild(a); a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+          toast("Exported " + num(x.rows) + " row(s).", "good");
+        });
+      });
+      head.appendChild(exp);
+      host.appendChild(head);
+      host.appendChild(el("div", "n-note",
+        "A reservation is free and non-binding. When pre-orders open, email each person to confirm and pay at checkout, where shipping and sales tax are calculated. Only people marked Newsletter: Yes ticked the newsletter box."));
+
+      if (!(d.rows || []).length) { host.appendChild(el("div", "n-empty", "No reservations yet.")); return; }
+      var names = (d.perProduct || []).map(function (p) { return p.name; });
+      var wrap = el("div", "n-table-wrap");
+      var scroll = el("div", "n-scroll");
+      var t = el("table", "n-table");
+      var thead = document.createElement("thead");
+      var hr = document.createElement("tr");
+      ["Ref", "Name", "Email", "Ships to"].concat(names).concat(["Subtotal", "Shipping", "Newsletter", "From", "When"])
+        .forEach(function (h) { hr.appendChild(el("th", null, h)); });
+      thead.appendChild(hr); t.appendChild(thead);
+      var tb = document.createElement("tbody");
+      d.rows.forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.appendChild(el("td", "n-when", r.reference));
+        tr.appendChild(el("td", null, (r.first + " " + r.last).trim()));
+        tr.appendChild(el("td", "n-email", r.email));
+        tr.appendChild(el("td", "n-when", (r.country + " " + (r.zip || "")).trim()));
+        (d.perProduct || []).forEach(function (p) { tr.appendChild(el("td", null, num((r.items || {})[p.id] || 0))); });
+        tr.appendChild(el("td", null, money(r.subtotalCents)));
+        var sh = el("td"); sh.appendChild(chip(r.freeShipping ? "good" : "neutral", r.freeShipping ? "Free" : "At checkout"));
+        tr.appendChild(sh);
+        tr.appendChild(el("td", "n-when", r.newsletter ? "Yes" : "No"));
+        tr.appendChild(el("td", "n-when", r.site === "bss" ? "Bearded Seal Studios" : "Currents and Critters"));
+        tr.appendChild(el("td", "n-when", r.atIso || "-"));
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb); scroll.appendChild(t); wrap.appendChild(scroll);
+      host.appendChild(wrap);
     });
   }
 

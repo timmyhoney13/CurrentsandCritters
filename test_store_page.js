@@ -4,13 +4,15 @@
  * Run:  node test_store_page.js        (needs Google Chrome installed)
  *
  * The Store sits right of Home: the Whale Shark and Loggerhead Sea Turtle
- * plushies on top (Coming soon, "Price: $?", a Pre-order button and a
- * drag-to-spin 360° view), then the four Critter Coins packs. Checks:
+ * plushies on top (Reservations open, "$39.99 + shipping and applicable sales
+ * tax", a quantity stepper, a Reserve button to /preorder and a drag-to-spin
+ * 360° view), then the four Critter Coins packs. Checks:
  *
  *   • the tab is the one right after Home, and opens its page;
- *   • every Pre-order and Buy button is a REAL link (works with JavaScript
- *     off) to the right product on the Squarespace shop, opens in a new tab
- *     with rel=noopener, and is on screen and big enough to tap;
+ *   • every Reserve button is a REAL link (works with JavaScript off) to
+ *     /preorder carrying its plushie, and every Buy button a real link to the
+ *     right product on the Squarespace shop, opening in a new tab with
+ *     rel=noopener; all on screen and big enough to tap;
  *   • the coin packs carry the same price ⇄ coins pairs as the game's Store
  *     (preview-app.js PHST_COIN_PACKS), since Squarespace grants by product;
  *   • the 360° viewer spins by drag (mouse and touch), the arrows, the view
@@ -50,12 +52,16 @@ for (const m of PANEL.matchAll(/src="(assets\/[^"?]+)[^"]*"/g)) ok(fs.existsSync
 ok(PANEL.indexOf("Whale Shark") < PANEL.indexOf("Critter Coins</h3>") &&
    PANEL.indexOf("Loggerhead Sea Turtle") < PANEL.indexOf("Critter Coins</h3>"),
    "the plushies are at the top, above the coins");
-ok((PANEL.match(/Coming soon/g) || []).length === 2, "both plushies say Coming soon");
-ok((PANEL.match(/Price: <b>\$\?<\/b>/g) || []).length === 2, "both plushies say Price: $?");
-for (const slug of ["whale-shark-plush", "loggerhead-sea-turtle-plush"]) {
-  ok(new RegExp(`<a class="[^"]*st-preorder[^"]*" href="${SHOP}${slug}" target="_blank" rel="noopener">Pre-order`).test(PANEL),
-     `Pre-order is a real link to ${slug}`);
+ok((PANEL.match(/Reservations open/g) || []).length === 2, "both plushies say Reservations open");
+ok((PANEL.match(/<b>\$39\.99<\/b> \+ shipping and applicable sales tax/g) || []).length === 2,
+   "both plushies say $39.99 + shipping and applicable sales tax");
+ok(!/Price: <b>\$\?<\/b>/.test(PANEL), "no plushie still says Price: $?");
+for (const id of ["whale-shark", "loggerhead-sea-turtle"]) {
+  ok(new RegExp(`<a class="[^"]*st-preorder[^"]*" href="/preorder\\?add=${id}">Reserve`).test(PANEL),
+     `Reserve is a real link to /preorder?add=${id}`);
+  ok(new RegExp(`data-ccpo-qty="${id}"`).test(PANEL), `the ${id} card has a quantity stepper slot`);
 }
+ok(/data-cc-preorder="compact"/.test(PANEL), "the free-shipping bar and running total sit under the plushies");
 ok((PANEL.match(/data-spin360/g) || []).length === 2, "both plushies have a 360° viewer");
 ok((PANEL.match(/class="st-frame/g) || []).length === 10, "...with five photos each (front, left, back, right, top)");
 
@@ -84,7 +90,7 @@ const SCENARIOS = {
     ok(document.documentElement.scrollWidth <= VW + 2, "the Store does not scroll sideways at " + VW + "px");
 
     var btns = [].slice.call(document.querySelectorAll("#panel-store .st-preorder, #panel-store .st-buy"));
-    ok(btns.length === 6, "two Pre-order and four Buy buttons: " + btns.length);
+    ok(btns.length === 6, "two Reserve and four Buy buttons: " + btns.length);
     var bad = [];
     btns.forEach(function (b) {
       b.scrollIntoView({ block: "center" });
@@ -96,7 +102,7 @@ const SCENARIOS = {
     });
     ok(bad.length === 0, "every button is on screen, uncovered and big enough to tap: " + bad.join("; "));
 
-    // A real click on Pre-order must try to open the shop page and nothing
+    // A real click on Reserve must try to open /preorder and nothing
     // on the page may swallow it. window.open is how Chrome opens a
     // target=_blank link, so watch for the navigation instead of following it.
     var pre = document.querySelector("#panel-store .st-preorder");
@@ -104,7 +110,7 @@ const SCENARIOS = {
     document.addEventListener("click", function (e) { clicked = e; }, { once: true });
     pre.addEventListener("click", function (e) { e.preventDefault(); }, { once: true });
     pre.click();
-    ok(clicked && clicked.target === pre, "a click on Pre-order reaches the link");
+    ok(clicked && clicked.target === pre, "a click on Reserve reaches the link");
     ok(window.ccTabs.current === "store", "...and does not switch the site to another page");
   `,
 

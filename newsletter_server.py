@@ -78,6 +78,7 @@ import newsletter_email as nl_email
 # other tab. Nothing in this module writes to that list, and nothing in that
 # list is a subscriber.
 import plush_vote
+import plush_reserve
 
 # ── Injected by init() (no circular import with multiplayer_server) ─────────
 _get_firestore: Optional[Callable[[], Any]] = None
@@ -126,6 +127,7 @@ SOURCE_WEBSITE = "Website Signup"
 # so a signup made beside a vote is never mistaken for one made at the
 # newsletter form.
 SOURCE_PLUSHY = "Plushy Vote"
+SOURCE_PLUSH_RESERVE = "Plush Reservation"
 
 # Campaign / recipient states.
 CAMP_DRAFT, CAMP_SENDING, CAMP_SENT, CAMP_FAILED = "draft", "sending", "sent", "failed"
@@ -3002,6 +3004,26 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                   summary="Exported %d plushy-vote contact(s), filter=%s" % (len(rows), kind))
             handler._send_json({"ok": True, "csv": csv_text, "rows": len(rows),
                                 "filename": "cc-plushy-vote-contacts-%s.csv"
+                                            % time.strftime("%Y-%m-%d", time.gmtime())})
+            return True
+
+        # ── Plush reservations (the free pre-order list) ─────────────────
+        # Read-only here too. A reservation is not a newsletter signup; the
+        # people on this tab asked to be told when they can pay for a plushie.
+        if action == "reservations":
+            handler._send_json({"ok": True, **plush_reserve.admin_view()})
+            return True
+
+        if action == "reservations-export":
+            if not _rate_ok("export", client):
+                handler._send_json({"ok": False, "error": "too_many_requests"}, status=429)
+                return True
+            rows = plush_reserve.reservation_rows()
+            csv_text = plush_reserve.reservations_csv(rows)
+            audit("reservations_csv_exported", admin=admin,
+                  summary="Exported %d plush reservation(s)" % len(rows))
+            handler._send_json({"ok": True, "csv": csv_text, "rows": len(rows),
+                                "filename": "cc-plush-reservations-%s.csv"
                                             % time.strftime("%Y-%m-%d", time.gmtime())})
             return True
 

@@ -318,7 +318,20 @@ try:
              "contact": "+447700900123"}, "198.51.100.2")
     pv.cast({"voter": "c" * 24, "picks": ["clownfish"]}, "198.51.100.3")
 
+    # The Plush Reservations tab, from the real module the same way.
+    import test_plush_reserve as R
+    import plush_reserve as pr
+    R.fresh(R.FakeDB())
+    pr.reserve({"first": "Ada", "last": "Lovelace", "email": "ada@example.com", "country": "US",
+                "zip": "37203", "items": {"whale-shark": 2, "loggerhead-sea-turtle": 1},
+                "newsletter": True}, "198.51.100.9")
+    pr.reserve({"first": "Grace", "last": "Hopper", "email": "grace@example.com", "country": "CA",
+                "items": {"loggerhead-sea-turtle": 1}}, "198.51.100.10")
+
     out = {
+        "reservations": dict(ok=True, **pr.admin_view()),
+        "reservations-export": {"ok": True, "rows": 2, "filename": "plush-reservations.csv",
+                                "csv": pr.reservations_csv(pr.reservation_rows())},
         "plushy": dict(ok=True, **pv.admin_view()),
         "plushy-export": {"ok": True, "rows": 2, "filename": "plushy.csv",
                           "csv": pv.contacts_csv(pv.contact_rows())},
@@ -512,7 +525,7 @@ async function goto(id, wait) {
     out.checks.scriptCountBefore = document.querySelectorAll("script").length;
 
     // ── 3. every section renders ───────────────────────────────────
-    for (const id of ["dashboard","subscribers","plushy","compose","drafts","sent","progress","audit","settings"]) {
+    for (const id of ["dashboard","subscribers","plushy","reservations","compose","drafts","sent","progress","audit","settings"]) {
       out.screens[id] = await goto(id, id === "compose" ? 800 : 420);
     }
 
@@ -715,7 +728,7 @@ function run(width, height) {
                         .replace(/&lt;/g, "<").replace(/&gt;/g, ">"));
 }
 
-const SECTIONS = ["dashboard", "subscribers", "plushy", "compose", "drafts", "sent",
+const SECTIONS = ["dashboard", "subscribers", "plushy", "reservations", "compose", "drafts", "sent",
                   "progress", "audit", "settings"];
 
 console.log("\ndesktop (1440×900):");
@@ -753,6 +766,16 @@ check("subscribers shows active AND unsubscribed counts",
       /Active/.test((D.screens.subscribers||{text:''}).text) &&
       /Unsubscribed/.test((D.screens.subscribers||{text:''}).text));
 check("audit shows entries", (D.screens.audit||{rows:0}).rows >= 3, "rows=" + (D.screens.audit||{rows:0}).rows);
+
+// ── the plush reservations tab ────────────────────────────────────────────
+const resv = D.screens.reservations || { text: "", rows: 0, cards: 0 };
+check("reservations: shows the counts", resv.cards >= 5, "cards=" + resv.cards);
+check("reservations: lists both reservations with recomputed totals",
+      /ada@example\.com/.test(resv.text) && /grace@example\.com/.test(resv.text) && /\$119\.97/.test(resv.text),
+      resv.text.slice(0, 160));
+check("reservations: free shipping only for the U.S. order of 3",
+      /Free/.test(resv.text) && /At checkout/.test(resv.text));
+check("reservations: says no payment was taken", /No payment has been taken/i.test(resv.text));
 
 // ── the plushy vote tab ───────────────────────────────────────────────────
 const plushy = D.screens.plushy || { text: "", rows: 0, cards: 0 };
