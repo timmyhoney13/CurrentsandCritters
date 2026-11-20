@@ -81,7 +81,7 @@
 .ccpo .ccpo-link:hover { border-bottom-color: var(--ccpo-cyan-deep); }
 
 /* ── full page frame ─────────────────────────────────────────────────── */
-.ccpo-full { max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; }
+.ccpo-full { max-width: 1180px; margin: 0 auto; padding: 0 20px 40px; container-type: inline-size; container-name: ccpo; }
 .ccpo.ccpo-full > * + * { margin-top: 56px; }
 @media (max-width: 700px) { .ccpo-full { padding: 0 14px 28px; } .ccpo.ccpo-full > * + * { margin-top: 40px; } }
 
@@ -115,16 +115,34 @@
   background: var(--ccpo-cyan-soft); color: var(--ccpo-cyan-deep); }
 .ccpo .ccpo-steps b { display: block; font-size: 15px; color: var(--ccpo-ink); }
 .ccpo .ccpo-steps span { display: block; font-size: 13.5px; color: var(--ccpo-muted); line-height: 1.45; margin-top: 2px; }
-@media (max-width: 900px) { .ccpo .ccpo-steps { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 520px) { .ccpo .ccpo-steps { grid-template-columns: 1fr; } .ccpo .ccpo-steps li { padding: 12px 14px; } }
+@container ccpo (max-width: 900px) { .ccpo .ccpo-steps { grid-template-columns: 1fr 1fr; } }
+@container ccpo (max-width: 520px) { .ccpo .ccpo-steps { grid-template-columns: 1fr; } .ccpo .ccpo-steps li { padding: 12px 14px; } }
 
 /* shop */
 .ccpo .ccpo-shop-head { text-align: center; margin-bottom: 26px; }
 .ccpo .ccpo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 28px; align-items: start; }
 .ccpo .ccpo-products { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-@media (max-width: 1120px) { .ccpo .ccpo-layout { grid-template-columns: minmax(0, 1fr) 370px; } .ccpo .ccpo-products { grid-template-columns: 1fr; } }
-@media (max-width: 860px) { .ccpo .ccpo-layout { grid-template-columns: 1fr; } .ccpo .ccpo-products { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 640px) { .ccpo .ccpo-products { grid-template-columns: 1fr; } }
+/* Breakpoints follow the WIDTH THE PAGE GIVES US (a container query), not the
+   window: inside a Squarespace section the block is far narrower than the
+   screen. Medium: cards turn sideways, picture left, beside the summary. */
+@container ccpo (max-width: 1099px) {
+  .ccpo .ccpo-layout { grid-template-columns: minmax(0, 1fr) 360px; gap: 22px; }
+  .ccpo .ccpo-products { grid-template-columns: 1fr; gap: 18px; }
+  .ccpo .ccpo-products .ccpo-card { display: grid; grid-template-columns: minmax(200px, 42%) minmax(0, 1fr); gap: 4px 18px; align-items: start; }
+  .ccpo .ccpo-products .ccpo-card-body { padding: 6px 4px 4px; }
+}
+/* Narrow: one column, summary under the plushies. */
+@container ccpo (max-width: 819px) {
+  .ccpo .ccpo-layout { grid-template-columns: 1fr; }
+  .ccpo .ccpo-products { grid-template-columns: 1fr 1fr; }
+  .ccpo .ccpo-products .ccpo-card { display: flex; }
+  .ccpo .ccpo-products .ccpo-card-body { padding: 16px 8px 8px; }
+  .ccpo .ccpo-checkout { position: static; }
+  .ccpo .ccpo-panel { padding: 18px; }
+}
+@container ccpo (max-width: 600px) {
+  .ccpo .ccpo-products { grid-template-columns: 1fr; }
+}
 
 /* product card */
 .ccpo .ccpo-card { background: #fff; border: 1px solid var(--ccpo-line); border-radius: var(--ccpo-r); padding: 14px;
@@ -226,7 +244,6 @@
 .ccpo .ccpo-checkout { position: sticky; top: 110px; }
 .ccpo .ccpo-panel { background: #fff; border: 1px solid var(--ccpo-line); border-radius: var(--ccpo-r); box-shadow: var(--ccpo-shadow); padding: 22px; display: grid; gap: 18px; }
 .ccpo .ccpo-panel-title { font-size: 24px; font-weight: 700; line-height: 1.1; }
-@media (max-width: 860px) { .ccpo .ccpo-checkout { position: static; } .ccpo .ccpo-panel { padding: 18px; } }
 
 .ccpo .ccpo-lines { display: grid; gap: 10px; }
 .ccpo .ccpo-lines li { display: flex; align-items: center; gap: 12px; }
@@ -303,8 +320,8 @@
 .ccpo .ccpo-perk:nth-child(4) .ccpo-perk-ico { background: var(--ccpo-mint-soft); color: var(--ccpo-mint-deep); }
 .ccpo .ccpo-perk h3 { font-size: 18px; margin-bottom: 6px; }
 .ccpo .ccpo-perk p { font-size: 14px; color: var(--ccpo-ink-2); line-height: 1.5; }
-@media (max-width: 960px) { .ccpo .ccpo-perks { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 520px) { .ccpo .ccpo-perks { grid-template-columns: 1fr; } }
+@container ccpo (max-width: 960px) { .ccpo .ccpo-perks { grid-template-columns: 1fr 1fr; } }
+@container ccpo (max-width: 520px) { .ccpo .ccpo-perks { grid-template-columns: 1fr; } }
 
 /* mission */
 .ccpo .ccpo-mission { border-radius: 30px; overflow: hidden; position: relative;
@@ -318,7 +335,7 @@
 .ccpo .ccpo-mission .ccpo-h2 { color: #fff; }
 .ccpo .ccpo-mission p { max-width: 720px; margin-top: 10px; color: #cfe8f7; font-size: 16px; }
 .ccpo .ccpo-mission .ccpo-link { color: #fff; border-bottom-color: rgba(255,255,255,.35); }
-@media (max-width: 600px) { .ccpo .ccpo-mission-in { flex-direction: column; } }
+@container ccpo (max-width: 600px) { .ccpo .ccpo-mission-in { flex-direction: column; } }
 
 /* faq */
 .ccpo .ccpo-faq { max-width: 860px; margin-left: auto; margin-right: auto; text-align: center; }
