@@ -27,8 +27,14 @@
 
   var SCRIPT = document.currentScript ||
     (function () { var s = document.querySelectorAll("script[src*='preorder.js']"); return s[s.length - 1]; })();
+  // Where catalog.json lives: next to this script. www.currentsandcritters.com
+  // answers with a redirect to the bare domain, and a redirect carries no CORS
+  // header, so a page on beardedsealstudios.com could never follow it. Always
+  // ask the bare domain directly.
+  var HOME = "https://currentsandcritters.com/plush/";
   var BASE = (function () {
-    try { return new URL(".", SCRIPT.src).href; } catch (e) { return "https://www.currentsandcritters.com/plush/"; }
+    try { return new URL(".", SCRIPT.src).href.replace("://www.currentsandcritters.com/", "://currentsandcritters.com/"); }
+    catch (e) { return HOME; }
   })();
   var API = (window.CC_PREORDER_API || "https://play.currentsandcritters.com").replace(/\/$/, "");
   var STORE_KEY = "ccPlushCart.v1";
@@ -88,10 +94,14 @@
 
   /* ── the catalog ──────────────────────────────────────────────────────── */
   var CAT = null;
+  function getCatalog(base) {
+    return fetch(base + "catalog.json", { credentials: "omit" }).then(function (r) {
+      if (!r.ok) throw new Error("catalog " + r.status); return r.json();
+    });
+  }
   var catalogReady = (window.CC_PLUSH_CATALOG ? Promise.resolve(window.CC_PLUSH_CATALOG)
-    : fetch(BASE + "catalog.json", { credentials: "omit" }).then(function (r) {
-        if (!r.ok) throw new Error("catalog " + r.status); return r.json();
-      })).then(function (c) { CAT = c; return c; });
+    : getCatalog(BASE).catch(function (e) { if (BASE === HOME) throw e; return getCatalog(HOME); }))
+    .then(function (c) { CAT = c; return c; });
 
   /* ── the pricing rules (mirror of plush_reserve.quote) ────────────────── */
   function quote(items, country) {
