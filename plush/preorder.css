@@ -256,6 +256,8 @@
 .ccpo .ccpo-totals { display: grid; grid-template-columns: 1fr auto; gap: 9px 12px; padding-top: 14px; border-top: 1px solid var(--ccpo-line); font-size: 14.5px; }
 .ccpo .ccpo-totals dt { color: var(--ccpo-muted); font-weight: 600; }
 .ccpo .ccpo-totals dd { text-align: right; color: var(--ccpo-ink); font-weight: 700; }
+.ccpo .ccpo-totals .ccpo-deal[hidden] { display: none; }
+.ccpo .ccpo-totals dd.ccpo-deal { color: #0f7a4a; }
 .ccpo .ccpo-totals dt:nth-last-of-type(1), .ccpo .ccpo-totals dd:last-child { padding-top: 10px; border-top: 1px dashed var(--ccpo-line-2); color: var(--ccpo-ink); font-weight: 800; }
 .ccpo .ccpo-totals dd:last-child { font: 700 22px/1 var(--ccpo-display); }
 .ccpo .ccpo-free { display: inline-flex; align-items: center; gap: 5px; color: var(--ccpo-mint-deep); font-weight: 800; }

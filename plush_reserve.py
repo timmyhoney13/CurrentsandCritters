@@ -1,8 +1,9 @@
 """Currents and Critters: plush RESERVATIONS (the free, no-payment pre-order list).
 
 WHAT THIS IS, AND WHAT IT IS NOT
-The Weighted Whale Shark and the Weighted Loggerhead Sea Turtle are $39.99
-each plus shipping and applicable sales tax. Paid pre-orders are not open yet:
+The Weighted Whale Shark and the Weighted Loggerhead Sea Turtle are $44.99
+each plus shipping and applicable sales tax; buy 3 or more (any mix) and every
+plushie is $5 off, with free standard shipping to U.S. addresses. Paid pre-orders are not open yet:
 the Squarespace shop has no payment processor and no shipping rates connected,
 and this site never invents a shipping rate. So the pre-order page on both
 websites (currentsandcritters.com/preorder and beardedsealstudios.com/preorder)
@@ -82,6 +83,8 @@ PRODUCT_IDS: List[str] = [p["id"] for p in PRODUCTS]
 PRICE_CENTS: Dict[str, int] = {p["id"]: int(p["priceCents"]) for p in PRODUCTS}
 NAMES: Dict[str, str] = {p["id"]: str(p["name"]) for p in PRODUCTS}
 FREE_SHIPPING_MIN: int = int(CATALOG.get("freeShippingMin", 3))
+# 3 or more plushies: every plushie is this much off (any country).
+BUNDLE_DISCOUNT_CENTS: int = int(CATALOG.get("bundleDiscountCents", 0))
 FREE_SHIPPING_COUNTRIES = {str(c).upper() for c in CATALOG.get("freeShippingCountries", ["US"])}
 MAX_PER_ITEM: int = int(CATALOG.get("maxPerItem", 10))
 MAX_PER_ORDER: int = int(CATALOG.get("maxPerOrder", 20))
@@ -202,14 +205,18 @@ def quote(items: Dict[str, int], country: str = "US") -> Dict[str, Any]:
     lines = [{"id": pid, "name": NAMES[pid], "qty": items[pid],
               "unitCents": PRICE_CENTS[pid], "lineCents": items[pid] * PRICE_CENTS[pid]}
              for pid in PRODUCT_IDS if items[pid] > 0]
-    subtotal = sum(line["lineCents"] for line in lines)
+    list_cents = sum(line["lineCents"] for line in lines)
     country = (country or "US").upper()
     qualifies = count >= FREE_SHIPPING_MIN
+    discount = count * BUNDLE_DISCOUNT_CENTS if qualifies else 0
+    subtotal = list_cents - discount
     covered = country in FREE_SHIPPING_COUNTRIES
     return {
         "items": items,
         "lines": lines,
         "count": count,
+        "listCents": list_cents,
+        "discountCents": discount,
         "subtotalCents": subtotal,
         "qualifiesForFreeShipping": qualifies,
         "freeShipping": qualifies and covered,
@@ -368,6 +375,7 @@ def reserve(body: Dict[str, Any], client: str = "") -> Dict[str, Any]:
         "zip": data["zip"],
         "items": q["items"],
         "count": q["count"],
+        "discountCents": q["discountCents"],
         "subtotalCents": q["subtotalCents"],
         "freeShipping": q["freeShipping"],
         "newsletter": bool(data["newsletter"]),
@@ -441,6 +449,8 @@ def build_admin_email(doc: Dict[str, Any]) -> Tuple[str, str, str]:
                                     doc.get("zip", "")))]
     rows += [(line["name"], "%d x %s = %s" % (line["qty"], money(line["unitCents"]), money(line["lineCents"])))
              for line in q["lines"]]
+    if q.get("discountCents"):
+        rows += [("3+ plushie deal", "-%s ($%d off each)" % (money(q["discountCents"]), BUNDLE_DISCOUNT_CENTS // 100))]
     rows += [("Merchandise subtotal", money(q["subtotalCents"])),
              ("Shipping", "Free standard shipping" if q["freeShipping"] else "Calculated at checkout"),
              ("Sales tax", "Calculated at checkout"),
@@ -554,6 +564,7 @@ def status() -> Dict[str, Any]:
     shows. Also what the page calls on load to wake a sleeping server before
     anybody presses the button."""
     return {"ok": True, "enabled": enabled(), "freeShippingMin": FREE_SHIPPING_MIN,
+            "bundleDiscountCents": BUNDLE_DISCOUNT_CENTS,
             "maxPerItem": MAX_PER_ITEM, "maxPerOrder": MAX_PER_ORDER,
             "prices": dict(PRICE_CENTS), "catalogVersion": int(CATALOG.get("version", 1))}
 

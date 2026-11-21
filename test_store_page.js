@@ -4,7 +4,7 @@
  * Run:  node test_store_page.js        (needs Google Chrome installed)
  *
  * The Store sits right of Home: the Whale Shark and Loggerhead Sea Turtle
- * plushies on top (Reservations open, "$39.99 + shipping and applicable sales
+ * plushies on top (Reservations open, "$44.99 + shipping and applicable sales
  * tax", a quantity stepper, a Reserve button to /preorder and a drag-to-spin
  * 360° view), then the four Critter Coins packs. Checks:
  *
@@ -53,8 +53,8 @@ ok(PANEL.indexOf("Whale Shark") < PANEL.indexOf("Critter Coins</h3>") &&
    PANEL.indexOf("Loggerhead Sea Turtle") < PANEL.indexOf("Critter Coins</h3>"),
    "the plushies are at the top, above the coins");
 ok((PANEL.match(/Reservations open/g) || []).length === 2, "both plushies say Reservations open");
-ok((PANEL.match(/<b>\$39\.99<\/b> \+ shipping and applicable sales tax/g) || []).length === 2,
-   "both plushies say $39.99 + shipping and applicable sales tax");
+ok((PANEL.match(/<b>\$44\.99<\/b> \+ shipping and applicable sales tax/g) || []).length === 2,
+   "both plushies say $44.99 + shipping and applicable sales tax");
 ok(!/Price: <b>\$\?<\/b>/.test(PANEL), "no plushie still says Price: $?");
 for (const id of ["whale-shark", "loggerhead-sea-turtle"]) {
   ok(new RegExp(`<a class="[^"]*st-preorder[^"]*" href="/preorder\\?add=${id}">Reserve`).test(PANEL),

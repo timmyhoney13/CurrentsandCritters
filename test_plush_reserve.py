@@ -7,7 +7,7 @@ So what is pinned here:
   1. Every price, the free-shipping threshold and the caps come from
      plush/catalog.json, and the website's copies of them agree with it.
   2. The pricing rules, exactly as the customer is told them:
-       $39.99 each + shipping and applicable sales tax;
+       $44.99 each + shipping and applicable sales tax ($5 off each on 3+);
        1 or 2 plushies -> shipping calculated at checkout;
        3 or more, any mix -> free standard shipping, U.S. addresses only;
        sales tax always calculated at checkout.
@@ -90,10 +90,11 @@ GOOD = {"first": "Ada", "last": "Lovelace", "email": "Ada@Example.com", "country
 
 
 class Catalog(unittest.TestCase):
-    def test_prices_are_39_99(self):
+    def test_prices_are_44_99_with_5_off_on_3(self):
         for p in pr.PRODUCTS:
-            self.assertEqual(p["priceCents"], 3999, p["id"])
-        self.assertEqual(pr.money(3999), "$39.99")
+            self.assertEqual(p["priceCents"], 4499, p["id"])
+        self.assertEqual(pr.money(4499), "$44.99")
+        self.assertEqual(pr.BUNDLE_DISCOUNT_CENTS, 500)
 
     def test_specs(self):
         names = {p["id"]: p["name"] for p in pr.PRODUCTS}
@@ -117,12 +118,12 @@ class Catalog(unittest.TestCase):
     def test_website_copies_agree(self):
         index = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
         store = index[index.index('data-panel="store"'):index.index("<!-- /panel-store -->")]
-        self.assertEqual(store.count("<b>$39.99</b> + shipping and applicable sales tax"), 2)
+        self.assertEqual(store.count("<b>$44.99</b> + shipping and applicable sales tax"), 2)
         self.assertNotIn("Price: <b>$?</b>", store)
         self.assertNotIn("$29.99", index)
         page = open(os.path.join(ROOT, "preorder.html"), encoding="utf-8").read()
         self.assertIn('data-cc-preorder="full"', page)
-        self.assertIn("$39.99</b> each + shipping and applicable sales tax", page)
+        self.assertIn("$44.99</b> each + shipping and applicable sales tax", page)
         self.assertIn("/plush/preorder.js", page)
 
 
@@ -131,9 +132,10 @@ class Pricing(unittest.TestCase):
         return pr.quote({"whale-shark": ws, "loggerhead-sea-turtle": lt}, country)
 
     def test_the_four_examples(self):
-        for n, cents, free in [(1, 3999, False), (2, 7998, False), (3, 11997, True), (4, 15996, True)]:
+        for n, cents, off, free in [(1, 4499, 0, False), (2, 8998, 0, False), (3, 11997, 1500, True), (4, 15996, 2000, True)]:
             q = self.q(ws=n)
-            self.assertEqual((q["count"], q["subtotalCents"], q["freeShipping"]), (n, cents, free), n)
+            self.assertEqual((q["count"], q["subtotalCents"], q["discountCents"], q["freeShipping"]), (n, cents, off, free), n)
+            self.assertEqual(q["listCents"], n * 4499)
             self.assertEqual(q["shipping"], "free" if free else "calculated")
             self.assertEqual(q["tax"], "calculated")
 
@@ -141,7 +143,7 @@ class Pricing(unittest.TestCase):
         q = self.q(ws=2, lt=1)
         self.assertEqual((q["count"], q["subtotalCents"], q["freeShipping"]), (3, 11997, True))
         self.assertEqual([(l["name"], l["qty"], l["lineCents"]) for l in q["lines"]],
-                         [("Weighted Whale Shark", 2, 7998), ("Weighted Loggerhead Sea Turtle", 1, 3999)])
+                         [("Weighted Whale Shark", 2, 8998), ("Weighted Loggerhead Sea Turtle", 1, 4499)])
         self.assertEqual(self.q(lt=3)["freeShipping"], True)
 
     def test_remaining(self):
@@ -264,7 +266,7 @@ class Reserving(unittest.TestCase):
         self.assertEqual({p["id"]: p["qty"] for p in v["perProduct"]},
                          {"whale-shark": 2, "loggerhead-sea-turtle": 2})
         self.assertEqual(v["freeShippingOrders"], 1)
-        self.assertEqual(v["subtotalCents"], 15996)
+        self.assertEqual(v["subtotalCents"], 16496)
         csv_text = pr.reservations_csv(v["rows"])
         self.assertIn("'=HYPERLINK", csv_text)
         self.assertIn('"$119.97"', csv_text)
@@ -278,6 +280,7 @@ class Reserving(unittest.TestCase):
         self.assertNotIn("\n", subject)
         self.assertIn("Free standard shipping", text)
         self.assertIn("$119.97", text)
+        self.assertIn("-$15.00", text)
 
 
 class Wiring(unittest.TestCase):
