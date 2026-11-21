@@ -113,6 +113,8 @@
   border-radius: 18px; padding: 16px; }
 .ccpo .ccpo-step-ico { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; flex: none;
   background: var(--ccpo-cyan-soft); color: var(--ccpo-cyan-deep); }
+.ccpo .ccpo-step-ico.is-critter { width: 46px; height: 46px; }
+.ccpo .ccpo-step-ico.is-critter img { width: 36px; height: 36px; object-fit: contain; display: block; }
 .ccpo .ccpo-steps b { display: block; font-size: 15px; color: var(--ccpo-ink); }
 .ccpo .ccpo-steps span { display: block; font-size: 13.5px; color: var(--ccpo-muted); line-height: 1.45; margin-top: 2px; }
 @container ccpo (max-width: 900px) { .ccpo .ccpo-steps { grid-template-columns: 1fr 1fr; } }

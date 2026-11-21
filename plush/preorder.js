@@ -520,12 +520,13 @@
     ]);
   }
   function steps() {
-    var S = [["calendar", "Reserve today", "Pick your plushies. Free, no card needed."],
-             ["mail", "We email you", "The moment pre-orders open, you hear first."],
-             ["card", "Confirm & pay", "Checkout calculates shipping and sales tax."],
-             ["gift", "Launch day", "Plushies launch " + CAT.launchLabel + "."]];
+    // Step icons: the two plushie critters, taking turns.
+    var S = [["whale-shark", "Reserve today", "Pick your plushies. Free, no card needed."],
+             ["loggerhead-sea-turtle", "We email you", "The moment pre-orders open, you hear first."],
+             ["whale-shark", "Confirm & pay", "Checkout calculates shipping and sales tax."],
+             ["loggerhead-sea-turtle", "Launch day", "Plushies launch " + CAT.launchLabel + "."]];
     return h("ol", { class: "ccpo-steps", "aria-label": "How reserving works" }, S.map(function (s, i) {
-      return h("li", null, [h("span", { class: "ccpo-step-ico" }, [icon(s[0])]), h("div", null, [h("b", { text: (i + 1) + ". " + s[1] }), h("span", { text: s[2] })])]);
+      return h("li", null, [h("span", { class: "ccpo-step-ico is-critter" }, [h("img", { src: BASE + "step-" + s[0] + ".png", alt: "", width: "34", height: "34", loading: "lazy", decoding: "async" })]), h("div", null, [h("b", { text: (i + 1) + ". " + s[1] }), h("span", { text: s[2] })])]);
     }));
   }
   function perks() {
