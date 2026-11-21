@@ -5,7 +5,7 @@
  * Run:  node test_preorder_page.js        (needs Google Chrome and python3)
  *
  * Pins, at a phone width and a desktop width:
- *   • every price reads "$44.99", and 3+ takes $5 off each + "+ shipping and applicable sales tax";
+ *   • every price reads "$44.99", order 3 takes $5 off each (first 3 only) + "+ shipping and handling";
  *   • the free-shipping bar's four messages, its fill and its aria value, as
  *     plushies are added one at a time, in any mix;
  *   • the order summary: lines, subtotal, shipping (calculated -> Free at 3),
@@ -36,7 +36,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── static ──
 ok(CAT.products.every(p => p.priceCents === 4499) && CAT.bundleDiscountCents === 500, "catalog: every plushie is $44.99, $5 off each on 3+");
-ok(CAT.priceNote === "+ shipping and applicable sales tax", "catalog: the price note is exact");
+ok(CAT.priceNote === "+ shipping and handling" && CAT.bundleMaxItems === 3, "catalog: the price note is exact");
 ok(CAT.freeShippingMin === 3 && CAT.freeShippingCountries.join() === "US", "catalog: free standard shipping from 3, U.S. only");
 const JS = fs.readFileSync(path.join(ROOT, "plush/preorder.js"), "utf8");
 ok(!/\b(?:2[0-9]|3[0-8])\.99\b/.test(JS) && !/3999|4499/.test(JS), "preorder.js hard-codes no price: it reads the catalog");
@@ -146,14 +146,14 @@ const FLOW = (email) => `
   try { localStorage.clear(); } catch (e) {}
   const VW = document.documentElement.clientWidth;
   ok(document.documentElement.scrollWidth <= VW + 1, "nothing scrolls sideways (" + document.documentElement.scrollWidth + " vs " + VW + ")");
-  ok($$(".ccpo-card .ccpo-price").length === 2 && $$(".ccpo-card .ccpo-price").every(p => /\\$44\\.99\\s*\\+ shipping and applicable sales tax/.test(p.textContent)),
-     "both cards read $44.99 + shipping and applicable sales tax");
-  ok(/\\$44\\.99 each \\+ shipping and applicable sales tax/.test(text(".ccpo-chips")), "the hero states the price the same way");
+  ok($$(".ccpo-card .ccpo-price").length === 2 && $$(".ccpo-card .ccpo-price").every(p => /\\$44\\.99\\s*\\+ shipping and handling/.test(p.textContent)),
+     "both cards read $44.99 + shipping and handling");
+  ok(/\\$44\\.99 each \\+ shipping and handling/.test(text(".ccpo-chips")), "the hero states the price the same way");
   ok(/50 cm/.test(text("#ccpo-whale-shark")) && /2\\.5 lbs/.test(text("#ccpo-whale-shark")) &&
      /Premium ultra-soft plush fabric/.test(text("#ccpo-whale-shark")) && /Securely enclosed weighted filling/.test(text("#ccpo-whale-shark")) &&
-     /No heating components/.test(text("#ccpo-whale-shark")), "the whale shark card carries every spec");
+     /Straight from the deck: the Whale Shark/.test(text("#ccpo-whale-shark")), "the whale shark card carries every spec");
   ok(/50 cm/.test(text("#ccpo-loggerhead-sea-turtle")) && /2\\.5 lbs/.test(text("#ccpo-loggerhead-sea-turtle")) &&
-     /No heating components/.test(text("#ccpo-loggerhead-sea-turtle")), "the loggerhead card carries every spec");
+     /Straight from the deck: the Loggerhead Sea Turtle/.test(text("#ccpo-loggerhead-sea-turtle")), "the loggerhead card carries every spec");
   ok(/5% goes to ocean conservation/.test(document.body.textContent), "the pledge is on the page");
   ok(/exclusive Fish critter/.test(document.body.textContent), "the in-game unlock is on the page");
 
@@ -191,13 +191,15 @@ const FLOW = (email) => `
      "3: the summary lists each line: " + lines.join(" / "));
 
   plus("loggerhead-sea-turtle").click(); await sleep(30);
-  ok(sub()[0] === "$179.96" && sub()[1] === "\u2212$20.00" && /Free/.test(sub()[2]) && sub()[4] === "$159.96", "4: $179.96 less $20.00 = $159.96 and still free");
+  ok(sub()[0] === "$179.96" && sub()[1] === "\u2212$15.00" && /Free for 3/.test(sub()[2]) && sub()[4] === "$164.96",
+     "4: the deal covers the first 3 only, $179.96 less $15.00 = $164.96, extra shipping at checkout: " + sub().join(" | "));
+  ok(/full price/.test(msg()), "4: the bar says plushies past 3 are full price: " + msg());
 
   // typed quantity
   const inp = $("#ccpo-whale-shark .ccpo-qty-n");
   inp.focus(); inp.value = "5"; inp.dispatchEvent(new Event("input")); inp.dispatchEvent(new Event("change")); inp.blur();
   await sleep(30);
-  ok(sub()[0] === "$314.93" && sub()[4] === "$279.93", "typing 5 whale sharks: " + sub().join(" | "));
+  ok(sub()[0] === "$314.93" && sub()[4] === "$299.93", "typing 5 whale sharks: " + sub().join(" | "));
   inp.focus(); inp.value = "99"; inp.dispatchEvent(new Event("input")); inp.dispatchEvent(new Event("change")); inp.blur();
   await sleep(30);
   ok(inp.value === "10", "a typed quantity is capped at 10: " + inp.value);
@@ -205,7 +207,7 @@ const FLOW = (email) => `
   // non-U.S.
   const country = $("#ccpo-country");
   country.value = "CA"; country.dispatchEvent(new Event("change")); await sleep(30);
-  ok(sub()[2] === "Calculated at checkout" && /\\$5 off each/.test(msg()) && /U\\.S\\. addresses/.test(msg()), "Canada: $5 off each but no free shipping, and it says why: " + msg());
+  ok(sub()[2] === "Calculated at checkout" && /\\$5 off each/.test(msg()) && /outside the USA/.test(msg()), "Canada: $5 off each but no free shipping, and it says why: " + msg());
   country.value = "US"; country.dispatchEvent(new Event("change")); await sleep(30);
 
   window.CCPreorder.setQty("whale-shark", 2); window.CCPreorder.setQty("loggerhead-sea-turtle", 1); await sleep(30);
@@ -268,8 +270,8 @@ const STORE = `
   try { localStorage.clear(); } catch (e) {}
   document.getElementById("tabbtn-store").click(); await sleep(150);
   const panel = document.getElementById("panel-store");
-  ok((panel.textContent.match(/\\$44\\.99 \\+ shipping and applicable sales tax/g) || []).length >= 2, "both store cards read $44.99 + shipping and applicable sales tax");
-  ok(/Buy 3 or more plushies: \\$5 off each \\+ free standard shipping/.test(panel.textContent), "the store carries the 3+ promotion");
+  ok((panel.textContent.match(/\\$44\\.99 \\+ shipping and handling/g) || []).length >= 2, "both store cards read $44.99 + shipping and handling");
+  ok(/Order 3 plushies \\(any mix\\) and get free shipping and \\$5 off each in the USA/.test(panel.textContent), "the store carries the 3-plushie promotion");
   const steppers = panel.querySelectorAll("[data-ccpo-qty] .ccpo-qty");
   ok(steppers.length === 2, "each plush card has a quantity stepper: " + steppers.length);
   window.CCPreorder.setQty("whale-shark", 0); window.CCPreorder.setQty("loggerhead-sea-turtle", 0); await sleep(30);

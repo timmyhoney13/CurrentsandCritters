@@ -15,9 +15,11 @@
  *   <span data-ccpo-qty="whale-shark"></span>                   a stepper, anywhere
  *
  * The rules shown to the customer, in one place (and mirrored server-side):
- *   $44.99 each + shipping and applicable sales tax.
- *   3 or more plushies (any mix) = $5 off EVERY plushie (bundleDiscountCents),
- *   plus free standard shipping to U.S. addresses.
+ *   $44.99 each + shipping and handling (copy matches the Bearded Seal Studios shop).
+ *   Order 3 plushies (any mix) = free shipping and $5 off each in the USA.
+ *   The deal covers the first 3 only (bundleMaxItems): more are full price and
+ *   their shipping is calculated at checkout. Outside the USA the $5 off each
+ *   still applies, but shipping is not included.
  *   1 or 2 = shipping calculated at checkout. Tax always calculated at checkout.
  *   A reservation is free: nothing is charged today.
  */
@@ -116,12 +118,16 @@
     var min = CAT.freeShippingMin;
     var qualifies = count >= min;
     var covered = CAT.freeShippingCountries.indexOf((country || "US").toUpperCase()) !== -1;
-    var discount = qualifies ? count * (CAT.bundleDiscountCents | 0) : 0;
+    var dealItems = qualifies ? Math.min(count, CAT.bundleMaxItems || count) : 0;
+    var extra = count - dealItems;
+    var discount = dealItems * (CAT.bundleDiscountCents | 0);
     return { lines: lines, count: count, list: list, discount: discount, subtotal: list - discount, qualifies: qualifies,
-             free: qualifies && covered, covered: covered, remaining: Math.max(0, min - count), min: min };
+             free: qualifies && covered && !extra, freeFirst: qualifies && covered && extra > 0, extra: qualifies ? extra : 0,
+             covered: covered, remaining: Math.max(0, min - count), min: min };
   }
   function shipMessage(q) {
-    if (q.qualifies && !q.covered) return "You’ve unlocked " + dollars(CAT.bundleDiscountCents) + " off each! Free standard shipping is for U.S. addresses, so we'll quote your shipping at checkout.";
+    if (q.qualifies && !q.covered) return "You’ve unlocked " + dollars(CAT.bundleDiscountCents) + " off each on " + q.min + " plushies! Shipping outside the USA is not included, so we'll quote it at checkout.";
+    if (q.extra) return "You’ve unlocked " + deal() + " on " + q.min + " plushies! Plushies past " + q.min + " are full price, and their shipping is calculated at checkout.";
     if (q.count >= q.min) return "You’ve unlocked " + deal() + "!";
     if (q.count === 0) return "Add " + q.min + " plushies to unlock " + deal() + ".";
     if (q.remaining === 1) return "Add 1 more plushie to unlock " + deal() + ".";
@@ -198,7 +204,7 @@
       var s = h("span", { class: "ccpo-ship-step", style: "left:" + (i / CAT.freeShippingMin * 100) + "%" }, [i === CAT.freeShippingMin ? icon("truck") : h("b", { text: String(i) })]);
       steps.push(s); track.appendChild(s);
     }
-    var note = h("p", { class: "ccpo-ship-note", text: "Any mix of plushies counts. " + dollars(CAT.bundleDiscountCents) + " off every plushie, plus free standard shipping to U.S. addresses; sales tax still applies." });
+    var note = h("p", { class: "ccpo-ship-note", text: CAT.dealText + " Sales tax still applies." });
     var bar = h("div", { class: "ccpo-ship" + (opts.compact ? " is-compact" : "") }, [
       h("div", { class: "ccpo-ship-head" }, [h("span", { class: "ccpo-ship-badge" }, [icon("truck")]), msg]), track, opts.compact ? null : note]);
     var was = false;
@@ -279,10 +285,16 @@
         h("h3", { class: "ccpo-card-title", text: p.name }),
         h("p", { class: "ccpo-price" }, [h("b", { text: money(p.priceCents) }), h("span", { text: " " + CAT.priceNote })]),
         h("p", { class: "ccpo-blurb", text: p.blurb }),
+        h("p", { class: "ccpo-blurb ccpo-dealnote" }, [h("b", { text: money(p.priceCents) + " " + CAT.priceNote + "." }), " " + CAT.dealText]),
         h("ul", { class: "ccpo-specs", "aria-label": "Size and weight" }, [
           h("li", null, [icon("spin"), h("b", { text: p.sizeCm + " cm" }), h("span", { text: " (about " + inches + " in)" })]),
           h("li", null, [icon("weight"), h("b", { text: p.weightLb + " lbs" }), h("span", { text: " weighted" })])]),
-        h("ul", { class: "ccpo-feats" }, CAT.features.map(function (f) { return h("li", null, [icon("check"), f]); })),
+        h("ul", { class: "ccpo-feats" }, CAT.features.map(function (f) { return h("li", null, [icon("check"), h("b", { text: f })]); }).concat([
+          h("li", null, [icon("check"), h("span", null, [h("b", { text: "Straight from the deck:" }), " the " + p.critter + " is a " + p.family + " in Currents and Critters"])]),
+          h("li", null, [icon("check"), h("span", null, [h("b", { text: "First-run exclusive:" }), " a hang-tag code unlocks the exclusive Fish critter in the online game"])]),
+          h("li", null, [icon("check"), h("span", null, [h("b", { text: "Launching " + CAT.launchLabel }), ", Groundhog Day"])]),
+          h("li", null, [icon("check"), h("b", { text: CAT.pledge })])])),
+        h("p", { class: "ccpo-blurb ccpo-fact", text: p.fact }),
         h("div", { class: "ccpo-buyrow" }, [stepper(p), line])
       ])
     ]);
@@ -296,7 +308,7 @@
       subtotal: h("dd", null), deal: h("dd", { class: "ccpo-deal" }), shipping: h("dd", null), tax: h("dd", { text: "Calculated at checkout" }), total: h("dd", null)
     };
     var totalLabel = h("dt", null);
-    var dealLabel = h("dt", { class: "ccpo-deal", text: CAT.freeShippingMin + "+ plushie deal" });
+    var dealLabel = h("dt", { class: "ccpo-deal", text: CAT.freeShippingMin + "-plushie deal" });
     var dl = h("dl", { class: "ccpo-totals" }, [
       h("dt", { text: "Merchandise subtotal" }), rows.subtotal,
       dealLabel, rows.deal,
@@ -320,6 +332,7 @@
       dealLabel.hidden = rows.deal.hidden = !q.count;
       rows.shipping.innerHTML = "";
       if (q.free) rows.shipping.appendChild(h("span", { class: "ccpo-free" }, [icon("check"), "Free standard shipping"]));
+      else if (q.freeFirst) rows.shipping.appendChild(h("span", { class: "ccpo-free" }, [icon("check"), "Free for " + q.min + " · extras at checkout"]));
       else rows.shipping.textContent = "Calculated at checkout";
       totalLabel.textContent = q.free ? "Total before tax" : "Total before shipping & tax";
       rows.total.textContent = money(q.subtotal);
@@ -450,7 +463,7 @@
         h("p", { text: "We'll email " + payload.email + " the moment pre-orders open, so you can confirm and pay. Nothing has been charged." }),
         h("ul", { class: "ccpo-done-lines" }, lines),
         h("p", { class: "ccpo-done-meta" }, [
-          "Subtotal ", h("b", { text: money(d.subtotalCents) }), d.discountCents ? " (" + money(d.discountCents) + " off)" : "", d.freeShipping ? " · Free standard shipping" : " · Shipping calculated at checkout",
+          "Subtotal ", h("b", { text: money(d.subtotalCents) }), d.discountCents ? " (" + money(d.discountCents) + " off)" : "", d.freeShipping ? " · Free standard shipping" : d.freeShippingFirst ? " · Free shipping on 3, extras calculated at checkout" : " · Shipping calculated at checkout",
           " · Sales tax calculated at checkout"]),
         h("p", { class: "ccpo-ref" }, ["Reference ", h("b", { text: d.reference })]),
         d.newsletterError ? h("p", { class: "ccpo-fine", text: d.newsletterError }) : null,
@@ -481,7 +494,7 @@
     function sync() { var show = count > 0 && !inView; if (show !== visible) { visible = show; d.classList.toggle("is-on", show); } }
     listeners.push(function (q) {
       count = q.count;
-      txt.textContent = q.count ? q.count + " " + plural(q.count, "plushie", "plushies") + " · " + money(q.subtotal) + (q.free ? " · " + deal() : q.qualifies ? " · " + dollars(CAT.bundleDiscountCents) + " off each" : " · " + q.remaining + " to " + (q.covered ? deal() : dollars(CAT.bundleDiscountCents) + " off each")) : "";
+      txt.textContent = q.count ? q.count + " " + plural(q.count, "plushie", "plushies") + " · " + money(q.subtotal) + (q.free ? " · " + deal() : q.qualifies ? " · " + (q.covered ? deal() : dollars(CAT.bundleDiscountCents) + " off each") + " on " + q.min : " · " + q.remaining + " to " + (q.covered ? deal() : dollars(CAT.bundleDiscountCents) + " off each")) : "";
       fill.style.width = Math.min(100, q.count / q.min * 100) + "%";
       d.classList.toggle("is-unlocked", q.count >= q.min);
       sync();
@@ -501,7 +514,7 @@
       h("p", { class: "ccpo-lead", text: "The Whale Shark and the Loggerhead Sea Turtle are swimming off the Currents and Critters cards and into your arms. Reserve yours today. It's free, and we'll email you the moment pre-orders open." }),
       h("ul", { class: "ccpo-chips" }, [
         h("li", { class: "is-price" }, [h("b", { text: money(CAT.products[0].priceCents) }), " each " + CAT.priceNote]),
-        h("li", { class: "is-ship" }, [icon("truck"), deal().charAt(0).toUpperCase() + deal().slice(1) + " on " + CAT.freeShippingMin + "+ plushies"]),
+        h("li", { class: "is-ship" }, [icon("truck"), "Order " + CAT.freeShippingMin + ": free shipping + " + dollars(CAT.bundleDiscountCents) + " off each in the USA"]),
         h("li", null, [icon("heart"), CAT.pledge])]),
       days > 0 ? h("p", { class: "ccpo-count" }, [h("b", { text: String(days) }), " " + plural(days, "day", "days") + " until launch · " + CAT.launchLabel]) : null
     ]);
@@ -517,7 +530,7 @@
   }
   function perks() {
     var P = [["feather", "Ultra-soft", "Premium ultra-soft plush fabric that begs to be hugged."],
-             ["weight", "Calming weight", "2.5 lbs of securely enclosed weighted filling. No heating components."],
+             ["weight", "Calming weight", "2.5 lbs of securely enclosed weighted filling."],
              ["game", "In-game unlock", CAT.unlock],
              ["wave", "Part of the deck", "Both are Crosscurrent critters from the Currents and Critters card game."]];
     return h("section", { class: "ccpo-perks", "aria-label": "Why you'll love them" }, P.map(function (p) {
@@ -540,8 +553,8 @@
     var Q = [
       ["Am I paying anything today?", "No. A reservation is free and non-binding, and we never ask for a card here. When pre-orders open, we email you a link to confirm your plushies and pay at checkout."],
       ["How much are the plushies?", "Each plushie is " + money(CAT.products[0].priceCents) + " " + CAT.priceNote + "."],
-      ["How does the " + CAT.freeShippingMin + "+ plushie deal work?", "Reserve " + CAT.freeShippingMin + " or more plushies, in any mix of Whale Sharks and Loggerheads, and every plushie is " + dollars(CAT.bundleDiscountCents) + " off (" + money(CAT.products[0].priceCents - CAT.bundleDiscountCents) + " each), and standard shipping is free to U.S. addresses. With 1 or 2 plushies, shipping is calculated at checkout. Sales tax still applies, and free shipping doesn't cover expedited or international shipping."],
-      ["How big are they, and what are they made of?", "Each one is " + CAT.products[0].sizeCm + " cm (about " + (Math.round(CAT.products[0].sizeCm / 2.54 * 10) / 10) + " in) and weighs " + CAT.products[0].weightLb + " lbs. They're made with premium ultra-soft plush fabric and securely enclosed weighted filling, with no heating components."],
+      ["How does the " + CAT.freeShippingMin + "-plushie deal work?", CAT.dealText + " The deal covers your first " + CAT.bundleMaxItems + " plushies (" + money(CAT.products[0].priceCents - CAT.bundleDiscountCents) + " each); any more are full price, and their shipping is calculated at checkout. Outside the USA the " + dollars(CAT.bundleDiscountCents) + " off each still applies. With 1 or 2 plushies, shipping is calculated at checkout. Sales tax still applies."],
+      ["How big are they, and what are they made of?", "Each one is " + CAT.products[0].sizeCm + " cm (about " + (Math.round(CAT.products[0].sizeCm / 2.54 * 10) / 10) + " in) and weighs " + CAT.products[0].weightLb + " lbs. They're made with premium ultra-soft plush fabric and securely enclosed weighted filling."],
       ["What's the in-game unlock?", CAT.unlock],
       ["When do they launch?", "The first plushies launch on Groundhog Day, " + CAT.launchLabel + "."],
       ["Can I change or cancel my reservation?", "Yes. Reserve again with the same email and we'll update your quantities instead of adding a second reservation. To cancel, just email " + inbox + "."],
@@ -557,7 +570,7 @@
   function finalCta(target) {
     return h("section", { class: "ccpo-final" }, [
       h("h2", { class: "ccpo-h2", html: "Bring a critter <em>home.</em>" }),
-      h("p", { text: money(CAT.products[0].priceCents) + " each " + CAT.priceNote + ". Reserve " + CAT.freeShippingMin + " or more for " + deal() + "." }),
+      h("p", { text: money(CAT.products[0].priceCents) + " each " + CAT.priceNote + ". " + CAT.dealText }),
       h("button", { type: "button", class: "ccpo-btn ccpo-btn-primary ccpo-btn-lg", onclick: function () {
         target.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
       } }, ["Reserve yours now", icon("arrow")])]);
@@ -575,7 +588,7 @@
         shipBar(), summary(), form(site)])]);
     var shop = h("section", { class: "ccpo-shop", id: "ccpo-shop", "aria-label": "Choose your plushies" }, [
       h("div", { class: "ccpo-shop-head" }, [h("p", { class: "ccpo-eyebrow", text: "Step 1" }), h("h2", { class: "ccpo-h2", text: "Choose your plushies" }),
-        h("p", { class: "ccpo-sub", text: "Mix and match. Any " + CAT.freeShippingMin + " plushies unlock " + deal() + "." })]),
+        h("p", { class: "ccpo-sub", text: "Mix and match. " + CAT.dealText })]),
       h("div", { class: "ccpo-layout" }, [products, checkout])]);
     root.appendChild(hero());
     root.appendChild(steps());

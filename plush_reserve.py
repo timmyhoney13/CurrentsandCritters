@@ -2,8 +2,10 @@
 
 WHAT THIS IS, AND WHAT IT IS NOT
 The Weighted Whale Shark and the Weighted Loggerhead Sea Turtle are $44.99
-each plus shipping and applicable sales tax; buy 3 or more (any mix) and every
-plushie is $5 off, with free standard shipping to U.S. addresses. Paid pre-orders are not open yet:
+each plus shipping and handling; order 3 (any mix) and get free shipping and
+$5 off each in the USA. The deal covers the first 3 only: more are full price
+and their shipping is calculated at checkout; outside the USA the $5 off each
+still applies but shipping is not included. Paid pre-orders are not open yet:
 the Squarespace shop has no payment processor and no shipping rates connected,
 and this site never invents a shipping rate. So the pre-order page on both
 websites (currentsandcritters.com/preorder and beardedsealstudios.com/preorder)
@@ -83,8 +85,9 @@ PRODUCT_IDS: List[str] = [p["id"] for p in PRODUCTS]
 PRICE_CENTS: Dict[str, int] = {p["id"]: int(p["priceCents"]) for p in PRODUCTS}
 NAMES: Dict[str, str] = {p["id"]: str(p["name"]) for p in PRODUCTS}
 FREE_SHIPPING_MIN: int = int(CATALOG.get("freeShippingMin", 3))
-# 3 or more plushies: every plushie is this much off (any country).
+# 3 or more plushies: the first BUNDLE_MAX_ITEMS are this much off (any country).
 BUNDLE_DISCOUNT_CENTS: int = int(CATALOG.get("bundleDiscountCents", 0))
+BUNDLE_MAX_ITEMS: int = int(CATALOG.get("bundleMaxItems", 0)) or 10 ** 6
 FREE_SHIPPING_COUNTRIES = {str(c).upper() for c in CATALOG.get("freeShippingCountries", ["US"])}
 MAX_PER_ITEM: int = int(CATALOG.get("maxPerItem", 10))
 MAX_PER_ORDER: int = int(CATALOG.get("maxPerOrder", 20))
@@ -208,9 +211,13 @@ def quote(items: Dict[str, int], country: str = "US") -> Dict[str, Any]:
     list_cents = sum(line["lineCents"] for line in lines)
     country = (country or "US").upper()
     qualifies = count >= FREE_SHIPPING_MIN
-    discount = count * BUNDLE_DISCOUNT_CENTS if qualifies else 0
+    deal_items = min(count, BUNDLE_MAX_ITEMS) if qualifies else 0
+    extra = count - deal_items if qualifies else 0
+    discount = deal_items * BUNDLE_DISCOUNT_CENTS
     subtotal = list_cents - discount
     covered = country in FREE_SHIPPING_COUNTRIES
+    free_all = qualifies and covered and not extra
+    free_first = qualifies and covered and extra > 0
     return {
         "items": items,
         "lines": lines,
@@ -219,8 +226,10 @@ def quote(items: Dict[str, int], country: str = "US") -> Dict[str, Any]:
         "discountCents": discount,
         "subtotalCents": subtotal,
         "qualifiesForFreeShipping": qualifies,
-        "freeShipping": qualifies and covered,
-        "shipping": "free" if (qualifies and covered) else "calculated",
+        "freeShipping": free_all,
+        "freeShippingFirst": free_first,
+        "extraItems": extra,
+        "shipping": "free" if free_all else ("free-first-3" if free_first else "calculated"),
         "tax": "calculated",
         "remainingForFreeShipping": max(0, FREE_SHIPPING_MIN - count),
     }
@@ -450,9 +459,11 @@ def build_admin_email(doc: Dict[str, Any]) -> Tuple[str, str, str]:
     rows += [(line["name"], "%d x %s = %s" % (line["qty"], money(line["unitCents"]), money(line["lineCents"])))
              for line in q["lines"]]
     if q.get("discountCents"):
-        rows += [("3+ plushie deal", "-%s ($%d off each)" % (money(q["discountCents"]), BUNDLE_DISCOUNT_CENTS // 100))]
+        rows += [("3-plushie deal", "-%s ($%d off each, first %d)" % (money(q["discountCents"]), BUNDLE_DISCOUNT_CENTS // 100,
+                                                                      min(q["count"], BUNDLE_MAX_ITEMS)))]
     rows += [("Merchandise subtotal", money(q["subtotalCents"])),
-             ("Shipping", "Free standard shipping" if q["freeShipping"] else "Calculated at checkout"),
+             ("Shipping", "Free standard shipping" if q["freeShipping"] else
+              "Free for 3, extras calculated at checkout" if q.get("freeShippingFirst") else "Calculated at checkout"),
              ("Sales tax", "Calculated at checkout"),
              ("Newsletter", "Yes, ticked the box" if doc.get("newsletter") else "No"),
              ("From", "beardedsealstudios.com" if doc.get("site") == "bss" else "currentsandcritters.com")]

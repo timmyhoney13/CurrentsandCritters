@@ -105,9 +105,10 @@ class Catalog(unittest.TestCase):
             self.assertEqual(p["weightLb"], 2.5)
             self.assertEqual(len(p["frames"]), 5)
         self.assertEqual(pr.CATALOG["features"], ["Premium ultra-soft plush fabric",
-                                                  "Securely enclosed weighted filling",
-                                                  "No heating components"])
-        self.assertEqual(pr.CATALOG["priceNote"], "+ shipping and applicable sales tax")
+                                                  "Securely enclosed weighted filling"])
+        self.assertEqual(pr.CATALOG["priceNote"], "+ shipping and handling")
+        self.assertEqual(pr.CATALOG["dealText"], "Order 3 plushies (any mix) and get free shipping and $5 off each "
+                                                 "in the USA. Shipping outside the USA is not included.")
         self.assertEqual(pr.FREE_SHIPPING_MIN, 3)
         self.assertEqual(pr.FREE_SHIPPING_COUNTRIES, {"US"})
 
@@ -118,12 +119,12 @@ class Catalog(unittest.TestCase):
     def test_website_copies_agree(self):
         index = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
         store = index[index.index('data-panel="store"'):index.index("<!-- /panel-store -->")]
-        self.assertEqual(store.count("<b>$44.99</b> + shipping and applicable sales tax"), 2)
+        self.assertEqual(store.count("<b>$44.99</b> + shipping and handling"), 2)
         self.assertNotIn("Price: <b>$?</b>", store)
         self.assertNotIn("$29.99", index)
         page = open(os.path.join(ROOT, "preorder.html"), encoding="utf-8").read()
         self.assertIn('data-cc-preorder="full"', page)
-        self.assertIn("$44.99</b> each + shipping and applicable sales tax", page)
+        self.assertIn("$44.99</b> each + shipping and handling", page)
         self.assertIn("/plush/preorder.js", page)
 
 
@@ -132,11 +133,15 @@ class Pricing(unittest.TestCase):
         return pr.quote({"whale-shark": ws, "loggerhead-sea-turtle": lt}, country)
 
     def test_the_four_examples(self):
-        for n, cents, off, free in [(1, 4499, 0, False), (2, 8998, 0, False), (3, 11997, 1500, True), (4, 15996, 2000, True)]:
+        # The deal covers the first 3 only: a 4th is full price and pays shipping.
+        for n, cents, off, ship in [(1, 4499, 0, "calculated"), (2, 8998, 0, "calculated"),
+                                    (3, 11997, 1500, "free"), (4, 16496, 1500, "free-first-3")]:
             q = self.q(ws=n)
-            self.assertEqual((q["count"], q["subtotalCents"], q["discountCents"], q["freeShipping"]), (n, cents, off, free), n)
+            self.assertEqual((q["count"], q["subtotalCents"], q["discountCents"], q["shipping"]), (n, cents, off, ship), n)
+            self.assertEqual(q["freeShipping"], ship == "free")
+            self.assertEqual(q["freeShippingFirst"], ship == "free-first-3")
+            self.assertEqual(q["extraItems"], max(0, n - 3) if n >= 3 else 0)
             self.assertEqual(q["listCents"], n * 4499)
-            self.assertEqual(q["shipping"], "free" if free else "calculated")
             self.assertEqual(q["tax"], "calculated")
 
     def test_mix_and_match(self):
@@ -155,6 +160,8 @@ class Pricing(unittest.TestCase):
             self.assertTrue(q["qualifiesForFreeShipping"])
             self.assertFalse(q["freeShipping"], c)
             self.assertEqual(q["shipping"], "calculated")
+            self.assertEqual(q["discountCents"], 1500, c)  # the $5 off each still applies
+            self.assertEqual(self.q(ws=5, country=c)["discountCents"], 1500, c)
 
     def test_quantities_are_whole_and_capped(self):
         self.assertEqual(pr.clean_items({"whale-shark": True})["whale-shark"], 0)
