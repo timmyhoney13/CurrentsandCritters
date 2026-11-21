@@ -51,7 +51,6 @@ const APP  = read("js/preview-app.js");
 const HTML = read("preview.html");
 const CSS  = read("css/preview.css");
 const DEV  = read("js/device-select.js");
-const TUT  = read("js/tutorials.js");
 
 // ══════════════════════════════════════════════════════════════════════════
 // Source-level: the shapes that must be gone, and the rules that replaced them
@@ -109,14 +108,6 @@ check("a new ACCOUNT still only gets what it owns",
       /_withOwnedOnly\(\(\) => sanitizeSelectableAvatar\(_signupAvatarUrl/.test(APP));
 check("a returning guest is marked a guest before their avatar is validated",
       /if \(savedGuestNick\) _guestSessionActive = true;[\s\S]{0,320}savedGuestAvatar = sanitizeSelectableAvatar/.test(APP));
-
-console.log("\nthe tutorial matches what a guest now sees");
-check("the gallery steps are no longer skipped for guests",
-      (TUT.match(/skipIf: tutIsGuest/g) || []).length === 1);
-check("the one that remains is the friend code, which a guest has none of",
-      /ph-fc-display[\s\S]{0,120}skipIf: tutIsGuest/.test(TUT));
-check("the guest notice says what is actually different now",
-      /the whole menu is open to you/.test(TUT) && /no saved profile|not get is a <strong>saved profile/.test(TUT));
 
 if (!CHROME) {
   console.log("\nSKIP: no Chrome found, the live guest walkthrough did not run.");

@@ -1,821 +1,302 @@
 #!/usr/bin/env node
-/* Tutorials, every step of every tour has to actually work.
+/* Tutorials: short videos, nothing to click through.
  *
- * The bug that prompted this file: the Main Menu Tour's History step handed the
- * learner a "View a sample match" button and then refused to advance until they
- * had tapped all three opponents inside the match modal, with the tutorial
- * popup sitting over the very chips it told them to tap. Next stayed disabled,
- * so the only way out was Skip, which throws away the whole tutorial. "It
- * doesn't work and is confusing" is exactly right, and no source grep finds it:
- * the selectors are valid, the handlers are wired, only the running tour is
- * broken.
+ * The tutorials were click-through tours (a popup per step, and a rigged game
+ * the player had to drive to reach the next one). They are videos now, each
+ * about a minute, and Competitive 1v1 is no longer one of them. This file
+ * holds that in place.
  *
- * Two halves:
- *   • SOURCE, the invariants that keep a step honest. Chiefly: an interactive
- *     step must never be able to trap the player (there is a timer that
- *     un-disables Next), and every hard-coded CSS id a step points at has to
- *     exist in the real markup.
- *   • DRIVE, the REAL preview.html, real CSS, real preview-app.js in headless
- *     Chrome, walking the Main Menu and Competitive tours the way a player
- *     does: press Next when it is offered, otherwise click whatever the
- *     spotlight is on. Asserted for the two tours that need no game server, as
- *     a guest AND signed in (the app locks a lot of the menu behind sign-in),
- *     and at five window widths.
+ *   • SOURCE: js/tutorials.js lists the videos and nothing else; every file it
+ *     names is really in multiplayer/client/video under a name the server's
+ *     /video route accepts; every video is short (read from the MP4 itself,
+ *     not from the label), its label says how long it really is, and its
+ *     captions are real WebVTT with no em dashes (captions are on screen).
+ *   • DRIVE: the real preview.html, CSS and preview-app.js in headless Chrome,
+ *     as a guest. Open the chooser, see eight videos in three groups (the main menu on its own first), play one,
+ *     check it really plays and hushes the lobby music, run it to the end, and
+ *     see it ticked off and remembered. At a laptop width and a phone width.
  *
- * Run:  node test_tutorials.js        (drive half needs Google Chrome)
+ * Run:  node test_tutorials.js            (drive half needs Google Chrome)
+ *       node test_tutorials.js source     (source half only)
  */
 "use strict";
 
 const fs   = require("fs");
 const os   = require("os");
 const path = require("path");
-const { execFileSync, spawn } = require("child_process");
+const http = require("http");
+const { spawn } = require("child_process");
 
 const ROOT   = __dirname;
 const CLIENT = path.join(ROOT, "multiplayer/client");
 const read   = (p) => fs.readFileSync(path.join(CLIENT, p), "utf8");
 
-const TUT  = read("js/tutorials.js");
-const HTML = read("preview.html");
-const APP  = read("js/preview-app.js");
-const CSS  = read("css/preview.css");
+const TUT    = read("js/tutorials.js");
+const HTML   = read("preview.html");
+const APP    = read("js/preview-app.js");
+const SERVER = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
 
 let pass = 0, fail = 0;
-function check(name, cond) {
+function check(name, cond, detail) {
   if (cond) { pass++; console.log("  ✓ " + name); }
-  else { fail++; console.log("  ✗ FAIL: " + name); }
+  else { fail++; console.log("  ✗ FAIL: " + name + (detail ? `  (${detail})` : "")); }
 }
+function done() {
+  console.log("\n" + "=".repeat(42));
+  console.log(`RESULT: ${pass} passed, ${fail} failed`);
+  process.exit(fail ? 1 : 0);
+}
+
+// ── The list, read out of the source ───────────────────────────────────
+const LIST_AT = TUT.indexOf("const VIDEOS = [");
+const LIST_END = TUT.indexOf("];", LIST_AT);
+const LIST = LIST_AT >= 0 ? TUT.slice(LIST_AT, LIST_END) : "";
+const VIDEOS = [];
+for (const m of LIST.matchAll(/\{\s*key:\s*"([^"]+)",\s*group:\s*"([^"]+)",\s*file:\s*"([^"]+)",\s*len:\s*"([^"]+)",\s*title:\s*"([^"]+)",\s*desc:\s*"([^"]+)"\s*\}/g)) {
+  VIDEOS.push({ key: m[1], group: m[2], file: m[3], len: m[4], title: m[5], desc: m[6] });
+}
+
+// Length of an MP4 in seconds, from its mvhd box (no ffprobe needed).
+function mp4Seconds(file) {
+  const b = fs.readFileSync(file);
+  const at = b.indexOf("mvhd");
+  if (at < 0) return NaN;
+  const v = b[at + 4];
+  if (v === 1) return Number(b.readBigUInt64BE(at + 4 + 4 + 16 + 4)) / b.readUInt32BE(at + 4 + 4 + 16);
+  return b.readUInt32BE(at + 4 + 4 + 8 + 4) / b.readUInt32BE(at + 4 + 4 + 8);
+}
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+
+console.log("\nthe tutorials are videos");
+check("js/tutorials.js lists its videos", VIDEOS.length > 0);
+check("eight of them", VIDEOS.length === 8, `${VIDEOS.length}`);
+check("the click-through tours are gone (no coach, no spotlight, no steps)",
+      !/runCoach|#tut3-coach|tut3-hole|_STEPS\s*=/.test(TUT));
+check("no tutorial drives a rigged game any more",
+      !/__ccTutorialGame|__ccTutorialVariant/.test(TUT));
+check("Competitive 1v1 is not a tutorial", !/competitive/i.test(TUT));
+check("every key is different", new Set(VIDEOS.map(v => v.key)).size === VIDEOS.length);
+check("the Osprey needs every one of them",
+      /function allDone\(\) \{ return doneCount\(\) === TOTAL; \}/.test(TUT) && /const KEYS = VIDEOS\.map\(v => v\.key\)/.test(TUT));
+check("the achievement says how many",
+      APP.includes(`label:"Watch all ${VIDEOS.length} tutorial videos."`));
+check("the How to Play tab no longer promises a dealt hand",
+      !/The tutorial deals you a real hand/.test(APP) && /Watch the tutorials/.test(APP));
+check("a video quiets the lobby's theme song, through the app's own hook",
+      /window\.__ccHushTheme = \(on\) =>/.test(APP) && /window\.__ccHushTheme\(on\)/.test(TUT));
+
+console.log("\nevery file is there, and short");
+const ROUTE = /re\.fullmatch\(r"\/video\/\(\[a-z0-9_-\]\+\\\.\(\?:mp4\|jpg\|vtt\)\)"/.test(SERVER);
+check("the server's /video route is the one this test assumes", ROUTE);
+const MAX = 75;
+for (const v of VIDEOS) {
+  const base = path.join(CLIENT, "video", v.file);
+  const ok = ["mp4", "jpg", "vtt"].every(x => fs.existsSync(`${base}.${x}`));
+  check(`${v.file}: mp4, poster and captions are all in client/video`, ok);
+  if (!ok) continue;
+  check(`${v.file}: a name the /video route serves`, /^[a-z0-9_-]+$/.test(v.file));
+  const secs = mp4Seconds(`${base}.mp4`);
+  check(`${v.file}: ${secs.toFixed(1)}s, not too long (${MAX}s at most)`, secs > 20 && secs <= MAX);
+  check(`${v.file}: the label "${v.len}" is its real length`, Math.abs(secs - (+v.len.split(":")[0] * 60 + +v.len.split(":")[1])) <= 1, mmss(secs));
+  const vtt = fs.readFileSync(`${base}.vtt`, "utf8");
+  const cues = (vtt.match(/-->/g) || []).length;
+  check(`${v.file}: real WebVTT captions (${cues} lines)`, vtt.startsWith("WEBVTT") && cues >= 5);
+  const last = [...vtt.matchAll(/--> (\d+):(\d+):([\d.]+)/g)].pop();
+  const lastEnd = last ? +last[1] * 3600 + +last[2] * 60 + +last[3] : 0;
+  check(`${v.file}: the captions finish inside the video`, lastEnd > 0 && lastEnd <= secs + 0.05, `${lastEnd} vs ${secs}`);
+  check(`${v.file}: no em dash on screen`, !/—/.test(vtt + v.title + v.desc));
+  const mb = fs.statSync(`${base}.mp4`).size / 1e6;
+  check(`${v.file}: ${mb.toFixed(1)} MB, light enough to stream`, mb < 15);
+}
+
+console.log("\nthe page");
+check("preview.html still loads js/tutorials.js", /"\/js\/tutorials\.js\?v=[^"]+"/.test(HTML));
+check("the Tutorial tile still opens the chooser", /window\.__openTutorialChooser\(\)/.test(APP));
+check("no emoji in the chooser (the game has none)",
+      !/[\u{1F300}-\u{1FAFF}]/u.test(TUT));
+
+if (process.argv[2] === "source") done();
 
 // ════════════════════════════════════════════════════════════════════════
-//  SOURCE
-// ════════════════════════════════════════════════════════════════════════
-console.log("\na step is done, not skipped");
-
-// A step used to un-disable its own Next after 15 seconds even when the thing
-// it asked for was sitting right there under the spotlight, so "close the card
-// viewer" could be skipped, and then the viewer covered every step after it.
-// Now the countdown only runs while the target is NOT usable, which is the
-// genuine dead end (gated behind sign-in, never rendered, disabled), OR while
-// the step's own usableWhen() says the game will not accept the action yet: a
-// hand card is visible and enabled whether or not it can legally be played.
-check("the escape is armed only while the target is unusable",
-      /if \(coachIsUsable\(t\) && coachStepUsable\(step\)\) \{ waited = Math\.max\(0, waited - 250\); return; \}/.test(TUT));
-// ...and it has to SURVIVE a block that comes and goes. Resetting the count to
-// zero the moment a step was briefly doable meant a condition that flapped (a
-// staged payment, cancelled and staged again) never let the countdown finish,
-// so the step could hold the player for ever with no way past it.
-check("a block that comes and goes still reaches the escape",
-      /waited = Math\.max\(0, waited - 250\)/.test(TUT) && !/waited = 0; return;/.test(TUT));
-check("a step can declare its own 'this cannot be done yet'",
-      /function coachStepUsable\(step\)[\s\S]{0,240}?step\.usableWhen\(\)/.test(TUT));
-check("...and it is no longer a per-step opt-in", !/mustAct/.test(TUT));
-check("interactive steps still get the dead-end timer", /coachStuck\s*=\s*setInterval/.test(TUT));
-check("the timer un-disables Next rather than auto-advancing",
-      /b\.disabled\s*=\s*false;\s*b\.textContent\s*=\s*"Skip this step →"/.test(TUT));
-check("a step with nothing on screen to click gives up sooner",
-      /STUCK_NO_TARGET_MS\s*=\s*\d+/.test(TUT) && /STUCK_WITH_TARGET_MS\s*=\s*\d+/.test(TUT));
-{
-  const noTarget = Number((/STUCK_NO_TARGET_MS\s*=\s*(\d+)/.exec(TUT) || [])[1]);
-  const withTarget = Number((/STUCK_WITH_TARGET_MS\s*=\s*(\d+)/.exec(TUT) || [])[1]);
-  check(`the no-target wait (${noTarget}ms) is shorter than the with-target wait (${withTarget}ms)`,
-        noTarget > 0 && withTarget > noTarget);
-}
-check("a disabled control does not count as usable, so a real dead end still gives way",
-      /function coachIsUsable\(el\)[\s\S]{0,220}?el\.disabled/.test(TUT));
-check("the timer is cleared when the tour ends", /if \(coachStuck\) \{ clearInterval\(coachStuck\)/.test(TUT));
-
-console.log("\n← Back takes you back to the step, not to a picture of it");
-
-// Back used to hand over a step the player could read but not perform: the
-// catch-layer went straight back to swallowing every click, so "click your
-// avatar" on a back-navigated step did nothing at all.
-check("a back-navigated step is still interactive",
-      /const isInteractive = !!step\.interactive;/.test(TUT));
-check("...so clicks still reach the page on it",
-      /catchEl\.style\.pointerEvents = isInteractive \? "none" : "auto"/.test(TUT));
-check("...and doing the action still advances the tour (the poll is armed, not skipped)",
-      /if \(typeof step\.advanceWhen === "function"\) \{[\s\S]{0,400}?if \(goingBack\) \{ try \{ armed = !step\.advanceWhen\(\); \}/.test(TUT));
-check("an already-satisfied condition does not bounce them forward again (the latch)",
-      /if \(!armed\) \{ if \(!ok\) armed = true; positionCoach\(\); return; \}/.test(TUT));
-check("Next is not re-locked on a step already done once",
-      /const lockNext = isInteractive && !step\.allowNext && !goingBack;/.test(TUT));
-check("...and going forward again re-locks it, so Back is not a way round a step",
-      /\} else if \(lockNext\) \{/.test(TUT));
-
-console.log("\nsteps that cannot apply are skipped, not shown broken");
-
-// A guest now gets the WHOLE menu, including the Avatar Gallery, so the steps
-// that used to be skipped for them are shown. What a guest still does not have
-// is a friend code (the server issues those to accounts), so that one step, and
-// only that one, is still skipped rather than left pointing at an empty box.
-check("a guest can open the gallery, so nothing is skipped for it",
-      !/Guests can't open the avatar collection/.test(APP)
-      && !/Guests cannot change their avatar/.test(APP));
-check("...and the avatar button no longer tests for an account",
-      !/only signed-in players open the gallery/.test(APP));
-check("no panel is gated from a guest at all", !/GUEST_GATE_MSGS/.test(APP));
-check("what a guest gets instead is a note, not a locked door",
-      /GUEST_NOTES = \{/.test(APP) && /ph-guest-note/.test(APP));
-check("the engine understands step.skipIf", /function coachSkipped\(step\)/.test(TUT));
-check("skipping works travelling backwards too", /function coachNextIdx\(from, back\)/.test(TUT));
-check("the tour detects a guest from the app's own auth bridge",
-      /function tutIsGuest\(\)[\s\S]{0,160}window\.__fishAuthUser/.test(TUT));
-check("__fishAuthUser is a real export", /window\.__fishAuthUser\s*=\s*\(\)\s*=>\s*_authUser/.test(APP));
-check("the only step still skipped for a guest is the friend code",
-      (TUT.match(/skipIf: tutIsGuest/g) || []).length === 1
-      && /ph-fc-display[\s\S]{0,120}skipIf: tutIsGuest/.test(TUT));
-check("a guest is told up front what is locked", /skipIf: \(\) => !tutIsGuest\(\)/.test(TUT));
-check("Step N of M counts only the steps this player is shown",
-      /const live = coachLiveIdxs\(\);[\s\S]{0,220}Step \$\{pos \+ 1\} of \$\{live\.length\}/.test(TUT));
-check("'Finish ✓' is decided by the last LIVE step, not the array length",
-      /function coachIsLast\(i\)/.test(TUT) && !/i >= coachSteps\.length - 1/.test(TUT));
-
-console.log("\nthe History step no longer gates on clicking into a game");
-
-check("the sample match opens itself", /before: \(\) => \{ closeMenuOverlays\(\); showSampleMatch\(\); \}/.test(TUT));
-check("Next is available straight away on it", /title: "A Real Past Match",\s*\n\s*interactive: true, allowNext: true/.test(TUT));
-check("the 'tap every opponent first' gate is gone", !/tutSampleAllOppsViewed/.test(TUT));
-check("...and so is the state it needed", !/_tutSampleViewed/.test(TUT) && !/_tutSampleOpponents/.test(TUT));
-check("the spotlight sits on the row of players", /target: "#ph-gdm-players"/.test(TUT));
-check("#ph-gdm-players is what the modal really fills",
-      /getElementById\("ph-gdm-players"\)/.test(APP) && /id="ph-gdm-players"/.test(HTML));
-// Poking a card inside that board opens the full-screen card viewer, which then
-// sits over every step that follows.
-check("the card viewer is cleared up by closeMenuOverlays",
-      /closeMenuOverlays[\s\S]{0,1400}?getElementById\("pv-zoom-modal"\)/.test(TUT));
-
-console.log("\nsteps point at things that are actually on screen");
-
-// The guide bar no longer carries the turn. It is empty on an ordinary turn
-// (renderGuideBar only fills it for Tarpon, the forced discard and a free-play
-// window) and #pv-guide-bar:empty collapses it to zero height, so a step
-// pointing at it would spotlight a 0px band. The turn banner is the thing that
-// is really on screen when it is your turn, and turn order is random, so the
-// step that waits for your turn has to say so.
-check("the guide bar is empty on an ordinary turn (renderGuideBar)",
-      /No numbered step chips on an ordinary turn[\s\S]{0,600}?bar\.innerHTML = "";\s*\n\s*\}/.test(APP));
-check("...so no step targets the guide bar at all",
-      !/target: "#pv-guide-bar"/.test(TUT) && !/gtGuideBarEl/.test(TUT));
-check("...the wait-for-your-turn step points at the turn banner",
-      /target: "#pv-turn-banner"/.test(TUT));
-check("...and the text explains the wait", /turn order is random/i.test(TUT));
-
-// Every hard-coded id a step points at must exist in the markup.
-const stepIds = [...TUT.matchAll(/target: "#([a-zA-Z0-9_-]+)"/g)].map(m => m[1]);
-check(`every step id was collected (${stepIds.length} of them)`, stepIds.length > 30);
-const missing = [...new Set(stepIds)].filter(id =>
-  !HTML.includes(`id="${id}"`) && !APP.includes(`"${id}"`));
-check(`no step points at an id that does not exist${missing.length ? ": " + missing.join(", ") : ""}`,
-      missing.length === 0);
-
-// Playing a card is not drag-only: the action dropdown does the same job, and
-// on a phone it is the easier one.
-check("card-play steps offer the dropdown as well as dragging",
-      (TUT.match(/Choose action…/g) || []).length >= 4);
-
-console.log("\nthe 'Click <which way> →' label points the right way");
-
-// Next doubles as a signpost while an interactive step waits for the real
-// click. It used to say "Click above" always, but the popup sits BELOW its
-// target when there is room and ABOVE it when there is not, so on a laptop the
-// waiting-room "Start Game" step pointed the player at the empty air above a
-// button that was underneath the popup.
-check("the label is not hard-coded to one direction",
-      !/nextBtn\.textContent = "Click above →"/.test(TUT));
-check("there is a label for each side", /POINTER_LABEL = \{[\s\S]{0,240}?above:[\s\S]{0,240}?below:[\s\S]{0,240}?left:[\s\S]{0,240}?right:/.test(TUT));
-check("only positionCoach decides it, because only it has measured",
-      /function coachSetPointer\(dir\)/.test(TUT));
-// Every early return in positionCoach is a different placement, and each one
-// has to say which way it just put the popup.
-{
-  const body = /function positionCoach\(\) \{[\s\S]*?\n  \}\n/.exec(TUT);
-  const n = body ? (body[0].match(/coachSetPointer\(/g) || []).length : 0;
-  const returns = body ? (body[0].match(/\n      return;|\n        return;/g) || []).length : 0;
-  check(`every placement branch sets the pointer (${n} setters, ${returns} early returns)`,
-        n >= returns + 1);
-}
-check("...and a step going backwards does not keep the old direction",
-      /coachAwaitingAct = false;\n    clearCoachGlows\(\);/.test(TUT));
-check("once it becomes 'Skip this step →' the direction stops overwriting it",
-      /if \(b && b\.disabled\) b\.textContent = POINTER_LABEL\[coachPointer\]/.test(TUT));
-
-console.log("\nthe step that starts the game has to be done, not skipped");
-
-// Skipping "Start Game" leaves every following step pointing into a game that
-// never started. It is now covered by the general rule (an interactive step
-// cannot be skipped while its target is usable) rather than a per-step flag.
-check("all three tours really do gate on Start Game",
-      (TUT.match(/target: "#wr-start-btn"/g) || []).length === 3);
-check("...and each of those steps is interactive",
-      (TUT.match(/target: "#wr-start-btn", badge: "[^"]*", title: "Start the Game", interactive: true/g) || []).length === 3);
-check("the button the gate waits on is the real one, and it does get enabled",
-      /id="wr-start-btn"/.test(HTML) && /btn\.disabled = false;[\s\S]{0,200}?"Start Game"/.test(APP));
-check("a gate still gives way when the room cannot start (non-host / not full)",
-      /btn\.disabled = true;[\s\S]{0,120}?Waiting for host to start/.test(APP));
-
-console.log("\nthe highlight shows WHICH card, not just that one is somewhere here");
-
-// Against a dimmed table a 2px outline leaves the spotlighted card exactly the
-// same colour as every card the player must not touch.
-check("the spotlight fills its hole, not only its border",
-      /#tut3-hole \{[^}]*background:rgba\(/.test(TUT) && /#tut3-hole \{[^}]*inset 0 0 \d+px/.test(TUT));
-check("...and clears the fill when there is no target",
-      /#tut3-hole\.nohole \{[^}]*background:transparent!important/.test(TUT));
-check("a secondary glow ring is filled too",
-      /\.tut3-glow-ring \{[^}]*background:rgba\(255,213,116/.test(TUT) && /\.tut3-glow-ring \{[^}]*inset 0 0 \d+px rgba\(255,213,116/.test(TUT));
-check("neither highlight can swallow the click it is asking for",
-      /#tut3-hole \{[^}]*pointer-events:none/.test(TUT) && /\.tut3-glow-ring \{[^}]*pointer-events:none/.test(TUT));
-
-console.log("\n\"play this card\" also shows WHERE it goes");
-
-check("the engine understands step.dragDemo", /function applyCoachDrags\(\)/.test(TUT));
-check("the ghost carries the real card art", /const img = from\.querySelector\("img"\)/.test(TUT));
-check("it flies from the hand card to the destination",
-      /--tut3-dx/.test(TUT) && /--tut3-dy/.test(TUT) && /@keyframes tut3-drag-fly/.test(TUT));
-check("it is rebuilt only when the two rects move, so it never freezes on frame 1",
-      /if \(sig === _dragSig\) return;/.test(TUT));
-check("it is repositioned with everything else", /applyCoachGlows\(\);\s*\n\s*applyCoachDrags\(\);/.test(TUT));
-check("it is torn down with the tour", /clearCoachDrags\(\);/.test(TUT));
-{
-  const demos = (TUT.match(/dragDemo: \{/g) || []).length;
-  check(`every guided play demonstrates the drag (${demos} of them)`, demos >= 6);
-}
-// A card goes in ONE of an Ocean's four spots. Glowing the whole hub says
-// "one of these four", which is the question, not the answer.
-check("the destination is a single lane, not the whole ocean",
-      /function blReefLaneEl\(dir\)/.test(TUT) && /\.pv-lane-\$\{dir\}/.test(TUT));
-check("...and lanes are what the board really renders",
-      /lane\.className = `pv-lane-\$\{dir\}`/.test(APP));
-check("Tutorial 2 asks the SERVER where its creature may go, rather than guessing",
-      /function gtSlotElForEntry\(entryUid\)/.test(TUT) && /window\.__ccLegalActions/.test(TUT));
-check("__ccLegalActions is a real export", /window\.__ccLegalActions = \(\)/.test(APP));
-check("face_direction is really on a legal action", /String\(a\.face_direction\|\|""\)\.toLowerCase\(\)===dir/.test(APP));
-
-console.log("\nthe tutorials say true things about the game");
-
-// Playing a card ends your turn. The B-Lob tour used to stop after every play
-// and tell the player to press End Turn, an instruction for a button that had
-// already done its job, three times in one tutorial.
-check("no B-Lob step tells the player to end a turn the game already ended",
-      !/title: "End Your Turn"[^}]*badge: "Turn/.test(TUT) && (TUT.match(/title: "End Your Turn"/g) || []).length === 1);
-check("the one surviving End Turn step is the LESSON, not an instruction",
-      /title: "End Your Turn",\s*\n\s*text: "Most of the time you never touch this\./.test(TUT));
-check("...and it names the two cards that actually need it",
-      /Loggerhead Sea Turtle<\/strong> and <strong>Hermit Crab/.test(TUT));
-{
-  // Those two, and only those two, are what the server calls an open play
-  // window, the same line test_end_turn_callout_cards.py pins from the deck.
-  const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
-  check("...which is the same rule the server enforces",
-        /is_open_play_window = bool\(fish\.has_multi_play_window\(player\)\)/.test(server));
-}
-check("the player is told what to do instead: nothing, the bots are playing",
-      /title: "Waiting for the Others"/.test(TUT) && /ends your turn for you/.test(TUT));
-check("a play step says live whether it is even your turn yet",
-      /function tutTurnNote\(\)/.test(TUT) && (TUT.match(/liveNote: tutTurnNote/g) || []).length >= 4);
-check("...and that line keeps ticking on a back-navigated step",
-      /coachTick = setInterval\(applyCoachLive, \d+\)/.test(TUT));
-check("...and is cleared with the tour", /if \(coachTick\) \{ clearInterval\(coachTick\); coachTick = null; \}/.test(TUT));
-
-// A card is two animals. Nothing in any tutorial said so.
-check("the two-sided deck is explained", /title: "Every Card Is Two Animals"/.test(TUT));
-check("...including what the side decides about placement",
-      /title: "Which Side, Which Spot"/.test(TUT) && /Ocean Floor<\/strong> \(the bottom spot/.test(TUT));
-check("Surf's Up gets a real explanation, not one line",
-      /title: "Surf's Up!!"/.test(TUT) &&
-      /nobody can vote you afk/i.test(TUT) && /your turn parks/i.test(TUT));
-check("the card viewer's ✕ is highlighted when the step says to click it",
-      /glow: \["#pv-zoom-close"\], badge: "Cards", title: "Flip & Close"/.test(TUT));
-check("...and #pv-zoom-close is the real close button", /id="pv-zoom-close"/.test(HTML));
-
-console.log("\nthe tour only calls functions it can actually reach");
-{
-  // applyNcMode() and closeNewCurrentModal() are declared inside preview-app.js's
-  // IIFE and never put on window, so from tutorials.js (its own IIFE) they were
-  // ReferenceErrors, each swallowed by the try/catch it sat in. Nothing threw
-  // and nothing worked: "we've flipped it to Competitive for you" flipped
-  // nothing, and the three steps after it described locked fields on a modal
-  // still sitting on Normal. starText() was the same bug waiting to happen.
-  // Every cross-file call has to go through a window.* bridge.
-  let src = TUT
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/^\s*\/\/.*$/gm, " ")
-    .replace(/([^:])\/\/.*$/gm, "$1 ")
-    .replace(/`(?:\\.|[^`\\])*`/g, '""')
-    .replace(/"(?:\\.|[^"\\])*"/g, '""')
-    .replace(/'(?:\\.|[^'\\])*'/g, '""');
-  const declared = new Set(["async"]);
-  for (const m of src.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)) declared.add(m[1]);
-  for (const m of src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) declared.add(m[1]);
-  const BUILTIN = new Set(["Number", "String", "Boolean", "Array", "Object", "Set", "Map", "JSON",
-    "Math", "Date", "RegExp", "Error", "parseInt", "parseFloat", "isNaN", "setTimeout",
-    "setInterval", "clearTimeout", "clearInterval", "getComputedStyle", "Event", "Promise",
-    "Uint32Array", "if", "for", "while", "switch", "catch", "return", "typeof", "function"]);
-  const missing = [];
-  for (const m of src.matchAll(/(^|[^.\w$])([A-Za-z_$][\w$]*)\s*\(/gm)) {
-    const n = m[2];
-    if (!declared.has(n) && !BUILTIN.has(n) && !missing.includes(n)) missing.push(n);
-  }
-  check(`every function the tour calls is defined in tutorials.js${missing.length ? ": " + missing.join(", ") : ""}`,
-        missing.length === 0);
-  // Checked against the comment-stripped source: both names still appear in the
-  // comment that records why they are no longer CALLED, which is worth keeping.
-  check("...and the mode switch goes through the real dropdown, which cannot go stale",
-        /function setNcMode\(mode\)[\s\S]{0,260}?dispatchEvent\(new Event\("change"/.test(TUT)
-        && !/applyNcMode\s*\(/.test(src));
-  check("...and closing the setup window clicks the button a player would",
-        /function closeCompTourModal\(\)[\s\S]{0,220}?getElementById\("nc-close"\)/.test(TUT)
-        && !/closeNewCurrentModal\s*\(/.test(src));
-}
-
-console.log("\nthe Competitive tour names doors that exist");
-{
-  // Head to Head is the casual four-seat queue and has no mode picker at all:
-  // /api/quickplay takes a player name and a ticket, nothing else. "Quick
-  // Match → Competitive" was an instruction for a button that cannot do it.
-  const server = fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8");
-  check("Head to Head really is mode-blind on the server",
-        /parsed\.path == "\/api\/quickplay"[\s\S]{0,320}?quick_play_join\(player_name, ticket\)/.test(server));
-  check("...and mode-blind in the client, so the tour must not offer it as a way into ranked",
-        /apiPost\("\/api\/quickplay", \{\s*player_name: name,\s*ticket: search\.ticket,\s*\}/.test(APP));
-  check("no tutorial sends a player to Head to Head for a Competitive game",
-        !/Head to Head[^"]{0,40}Competitive/.test(TUT.replace(/\/\/.*$/gm, "")));
-  check("the join step points at Join Game instead",
-        /target: "#stats-join-toggle-btn", badge: "Joining"/.test(TUT));
-  check("...which really opens Open Currents",
-        /"stats-join-toggle-btn"\)\.addEventListener\("click"[\s\S]{0,120}?openLobbyBrowser\(\)/.test(APP));
-  check("...and Open Currents really has a Competitive tab",
-        /data-tab="competitive">[\s\S]{0,300}?Competitive/.test(HTML));
-  check("...whose list carries both ranked modes",
-        /_lbActiveTab === "competitive"[\s\S]{0,260}?r\.mode === "competitive" \|\| r\.mode === "ranked"/.test(APP));
-  check("...and joining one claims a whole PAIR of hands, which is what the step promises",
-        /Competitive: claim a whole PAIR of hands/.test(APP) && /BOTH of their seats/.test(TUT));
-  // Two entries in that dropdown now start with the word "Competitive".
-  check("the mode step names the exact option, not the ambiguous half",
-        /Set it to <strong>Competitive<\/strong>/.test(TUT) === false
-        && /Competitive 1v1<\/strong>/.test(TUT));
-  check("...and warns about the other ranked mode sitting next to it",
-        /<strong>Competitive<\/strong>/.test(TUT));
-  check("...both of which are real options in the real dropdown",
-        /<option value="ranked">Competitive<\/option>/.test(HTML)
-        && /<option value="competitive">Competitive 1v1<\/option>/.test(HTML));
-}
-
-console.log("\nthe Main Menu Tour covers the whole Main Menu");
-{
-  // "You have now seen every part of the Main Menu" is a promise the tour has
-  // to keep. It was skipping How to play, Clans, Prestige and Level Pass, four
-  // of the thirteen tabs, including two whole progression systems.
-  const tabs = [...HTML.matchAll(/id="(snav-[a-z]+)" data-tab="([a-z]+)"/g)].map(m => m[1]);
-  check(`every sidebar tab was found (${tabs.length})`, tabs.length >= 12);
-  // A tab counts as covered if the tour spotlights its nav button OR its panel:
-  // Overview is arrived at with navTab() and explained on #ph-panel-overview.
-  // Every nav button is snav-<x> over ph-panel-<x>, so the map is empty; it
-  // held "snav-casual": "ph-panel-normal" back when there was a Casual tab.
-  const PANEL = {};
-  const uncovered = tabs.filter(id => {
-    const panel = PANEL[id] || id.replace(/^snav-/, "ph-panel-");
-    return !TUT.includes(`target: "#${id}"`) && !TUT.includes(`target: "#${panel}"`);
-  });
-  check(`the tour visits every tab in the sidebar${uncovered.length ? ", missing: " + uncovered.join(", ") : ""}`,
-        uncovered.length === 0);
-  check("...and it still claims to, which is now true",
-        /seen every part of the Main Menu/.test(TUT));
-  check("the four action cards are shown too, since that is what the menu is FOR",
-        /target: "\.ph-actions"/.test(TUT) && /class="ph-actions"/.test(HTML));
-}
-
-console.log("\nwhat the menu steps say about the menu is still true");
-{
-  // Each of these was describing a screen the app has since changed.
-  check("a donation code is redeemed where it really is, in the gallery",
-        /id="gal-code-btn"/.test(HTML)
-        && /donation code is not redeemed here/.test(TUT));
-  check("chat backgrounds are not described as something you own",
-        !/only one of you needs to own it/.test(TUT)
-        && /free to everyone/.test(TUT));
-  check("...which is what the sheet really does: no ownership gate on any tile",
-        /const tiles = \[\{ id: "__none__"[\s\S]{0,120}?\.concat\(CHAT_BACKGROUNDS\)/.test(APP));
-  check("the Friends tab is not promised a button it does not have",
-        !/challenge them to a private game/.test(TUT));
-  check("the Store step lists the sections the Store really has",
-        ["Backgrounds", "Exclusive Skins", "Player Perks", "★ Supporter Tiers", "Physical Game"]
-          .every(s => TUT.includes(s) && APP.includes(s)));
-  check("the leaderboard's add-friend button is described as the signed-in thing it is",
-        /Once you are <strong>signed in<\/strong>/.test(TUT)
-        && /if \(!_authUser \|\| isMe\) return `<td class="ph-lb-add-cell"><\/td>`/.test(APP));
-  check("the tour no longer points at the top-right Trade button, which is gone",
-        !/#stats-trade-btn/.test(TUT) && !/id="stats-trade-btn"/.test(HTML));
-}
-
-console.log("\na card is two animals, and every lookup has to know it");
-{
-  // The hand only ever paints faces[0], so a card whose Lobster is on the back
-  // sits there showing a Razorbill Auk. Any helper that finds a card by name,
-  // cost or direction and reads only the first face will miss it on half the
-  // deals. It cost two separate bugs: "Play a Creature" spotlighting nothing
-  // (gtFreeCreatureEntry read one face), and the B-Lob steps naming an animal
-  // the highlighted card does not show.
-  check("the hand really does paint only the front face",
-        /const face\s*=\s*\(Array\.isArray\(entry\.faces\) && entry\.faces\.length > 0\) \? entry\.faces\[0\] : entry;/.test(APP));
-  check("the free-creature lookup walks every face",
-        /function gtFreeCreatureEntry\(\)[\s\S]{0,700}?const faces = \(Array\.isArray\(e\.faces\) && e\.faces\.length\) \? e\.faces : \[e\];/.test(TUT));
-  check("...as does the B-Lob by-name lookup",
-        /function blHandEntryByName\(nameLc\)[\s\S]{0,400}?const faces = \(Array\.isArray\(e\.faces\) && e\.faces\.length\) \? e\.faces : \[e\];/.test(TUT));
-  check("...and the Star teaching pair",
-        /function _t2FindAll\(nameLc\)[\s\S]{0,400}?const faces = Array\.isArray\(e\.faces\) && e\.faces\.length \? e\.faces : \[e\];/.test(TUT));
-  check("the B-Lob steps warn that the card may be showing its other animal",
-        (TUT.match(/other animal|different animal's name/g) || []).length >= 3);
-  check("...and Tutorial 2 teaches the two-sided deck before any of it",
-        /title: "Every Card Is Two Animals"/.test(TUT));
-}
-
-console.log("\na highlight has to be reachable, not just correctly placed");
-{
-  // A ring drawn in exactly the right place over something no finger can press
-  // is the hardest tutorial bug to see, and phones produce two kinds of it: a
-  // fixed overlay sitting on the target, and a horizontal scroller that has
-  // clipped the target off the edge.
-  check("targets are scrolled into view horizontally as well as vertically",
-        /scrollIntoView\(\{ block: "center", inline: "center"/.test(TUT));
-  check("...everywhere a step scrolls, including the gallery tile",
-        !/scrollIntoView\(\{ block: "center", behavior/.test(TUT));
-  check("the in-game deck is not laid out under the fixed Board Size cluster on a phone",
-        /#pv-center-strip \{ gap: 8px; padding-right: \d+px; \}/.test(CSS));
-  check("...which is the same cluster --pv-bottom-ui already reserves room for",
-        /#bs-ctrl \{[\s\S]{0,600}?bottom: var\(--pv-bottom-ui/.test(CSS));
-}
-
-console.log("\nno em dashes in anything the player reads");
-{
-  const bad = [];
-  const re = /(?:text|title|badge|label|cta)\s*:\s*"((?:[^"\\]|\\.)*)"/g;
-  let m;
-  while ((m = re.exec(TUT))) if (/[—–]/.test(m[1])) bad.push(m[1].slice(0, 60));
-  check(`no step text uses an em or en dash${bad.length ? ": " + bad.join(" | ") : ""}`, bad.length === 0);
-}
-
-console.log("\nthe tutorial room code looks like a room code");
-{
-  // "TUT" + a base-36 timestamp, sliced to the 12-char maximum, was the first
-  // room code every learner ever saw, more than twice the length of a real one.
-  check("the tutorial no longer mints a 12-character code", !/\("TUT" \+ tutSuffix\)/.test(APP));
-  check("it uses the house length instead", /rid = freshRoomCode\(5\);/.test(APP));
-  const real = /let rid = Math\.random\(\)\.toString\(36\)\.slice\(2,(\d)\)\.toUpperCase\(\)/.exec(APP);
-  check(`...which is the same length an ordinary room gets (${real ? Number(real[1]) - 2 : "?"})`,
-        !!real && Number(real[1]) - 2 === 5);
-  check("the server agrees that is the house length", /ROOM_ID_LENGTH = 5/.test(fs.readFileSync(path.join(ROOT, "multiplayer_server.py"), "utf8")));
-  check("...and it is still a valid room id (4-12 uppercase alphanumerics)",
-        /const n = Math\.max\(4, Math\.min\(12,/.test(APP));
-  check("the tutorial room is still private, which is what keeps strangers out",
-        /if \(_isTutGame\) \{[\s\S]{0,1200}?visibility = "private";/.test(APP));
-  // The Online tour stops on the code box and says "this is your room code".
-  // Overriding it anyway meant the very next screen showed a different one.
-  check("a code the tutorial showed the player is the code the room gets",
-        /const tutKeepsTypedCode = \(visibility === "private"\);/.test(APP) &&
-        /if \(!tutKeepsTypedCode\) rid = freshRoomCode\(5\);/.test(APP));
-  check("...and the tour puts a real 5-character code in that box",
-        /function tutRoomCode\(\)/.test(TUT) && /new Uint32Array\(5\)/.test(TUT));
-  check("...the same one for the code step and the create step",
-        (TUT.match(/tutFillRoomCode/g) || []).length >= 3 && !/FISHY/.test(TUT));
-  check("...regenerated per run, so taking the tour twice cannot reuse a live code",
-        /_tutRoomCode = "";/.test(TUT));
-}
-
-console.log("\nthe tutorial ends by ending");
-{
-  check("no tutorial offers to keep playing the rigged practice game",
-        !/Keep Playing/.test(TUT));
-  check("...and the terminal choice menu is gone with it",
-        !/t3-choice/.test(TUT) && !/step\.choices/.test(TUT));
-  check("Tutorial 2 finishes through the normal Finish button",
-        /runCoach\(GAME_STEPS, async \(\) => \{[\s\S]{0,200}?setDone\("game"\)/.test(TUT));
-  check("Tutorial 3 too", /runCoach\(BLOB_STEPS, async \(\) => \{[\s\S]{0,200}?setDone\("practice"\)/.test(TUT));
-  check("...and both leave the practice match behind",
-        (TUT.match(/if \(window\.__tutLeaveGame\) await window\.__tutLeaveGame\(\)/g) || []).length >= 3);
-}
-
-console.log("\nthe popup gets out of its own way");
-check("it sits beside the target when it fits neither below nor above",
-      /Sit\s*\n?\s*\/\/ BESIDE it if there is room|roomRight >= popW \|\| roomLeft >= popW/.test(TUT));
-check("a step is re-positioned once async content lands", /coachSettle = setTimeout\(positionCoach/.test(TUT));
-
-// ════════════════════════════════════════════════════════════════════════
-//  DRIVE, the real app, in headless Chrome
+//  DRIVE
 // ════════════════════════════════════════════════════════════════════════
 const CHROME = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Chromium.app/Contents/MacOS/Chromium",
-  "/usr/bin/google-chrome",
-  "/usr/bin/chromium",
+  "/usr/bin/google-chrome", "/usr/bin/chromium",
 ].find(p => fs.existsSync(p));
+if (!CHROME) { console.log("\nSKIP: no Chrome found, the chooser was not driven."); done(); }
 
-if (!CHROME) {
-  console.log("\nSKIP: no Chrome/Chromium found: skipping the drive half.");
-} else {
-  // The driver: pick a device, sign in as a guest, open the chooser, start a
-  // tour, then behave like a player: press Next when it is offered, otherwise
-  // click whatever the spotlight is sitting on. Records, for every step, the
-  // things a player would notice: is anything highlighted, can I get past it,
-  // is the popup covering the thing I am told to click, is it even on screen.
-  const DRIVER = (tourKey) => `
-<div id="out">PENDING</div>
-<script>
-(function () {
-  // Under --virtual-time-budget the compositor never advances a CSS transition,
-  // so every measured rect would be the one from the step before.
-  var st = document.createElement("style");
-  st.textContent = "*,*::before,*::after{transition:none!important;animation:none!important}html{scroll-behavior:auto!important}";
-  document.head.appendChild(st);
-  var _sIV = Element.prototype.scrollIntoView;
-  Element.prototype.scrollIntoView = function (o) {
-    try { return _sIV.call(this, { block: (o && o.block) || "center", behavior: "instant" }); }
-    catch (e) { return _sIV.call(this, true); }
-  };
-
-  var log = [], out = document.getElementById("out");
-  function q(s) { return document.querySelector(s); }
-  function vis(el) {
-    if (!el) return false;
-    var r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return false;
-    var cs = getComputedStyle(el);
-    return cs.display !== "none" && cs.visibility !== "hidden";
+const PORT = 9411 + (process.pid % 60);
+const DEBUG_BASE = 9611 + (process.pid % 40) * 4;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function get(url, timeoutMs = 4000) {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, res => { let b = ""; res.on("data", d => b += d); res.on("end", () => resolve(b)); });
+    req.on("error", reject);
+    req.setTimeout(timeoutMs, () => req.destroy(new Error("timeout")));
+  });
+}
+async function waitFor(fn, ms, every = 250) {
+  const until = Date.now() + ms;
+  while (Date.now() < until) { try { const v = await fn(); if (v) return v; } catch (_) {} await sleep(every); }
+  return null;
+}
+class Cdp {
+  constructor(ws) { this.ws = ws; this.id = 0; this.waiting = new Map(); }
+  static async open(url) {
+    const ws = new WebSocket(url), c = new Cdp(ws);
+    ws.addEventListener("message", ev => { let m; try { m = JSON.parse(ev.data); } catch (_) { return; } const w = c.waiting.get(m.id); if (w) { c.waiting.delete(m.id); w(m); } });
+    await new Promise((res, rej) => { ws.addEventListener("open", res, { once: true }); ws.addEventListener("error", rej, { once: true }); setTimeout(() => rej(new Error("CDP timeout")), 15000); });
+    return c;
   }
-  function click(el) { if (el) try { el.click(); } catch (e) {} }
-  function finish() { out.textContent = JSON.stringify(log); }
-
-  var phase = 0, tick = 0, guard = 0, lastStep = "";
-  var iv = setInterval(function () {
-    if (++tick > 4000) { log.push({ fatal: "timeout in phase " + phase }); finish(); clearInterval(iv); return; }
-    try {
-      // The full-screen launch splash covers the page until a real click.
-      var spl = q("#cc-fs-splash");
-      if (spl && getComputedStyle(spl).display !== "none") { click(q("#ccfs-window")); spl.style.display = "none"; }
-      var dev = q("#cc-device-screen");
-      if (dev && getComputedStyle(dev).display !== "none") {
-        click(q('[data-cc-device="computer"]'));
-        if (tick > 20) dev.classList.add("cc-device-hidden");
-      }
-      if (phase === 0) { phase = 1; return; }
-      if (phase === 1) {
-        // Firebase resolves over the network; don't wait on it to show the form.
-        if (tick > 25) {
-          var ls = q("#auth-loading-screen"); if (ls) ls.classList.add("hidden");
-          var as = q("#auth-screen"); if (as) as.classList.remove("hidden");
-        }
-        var g = q("#auth-guest-btn");
-        if (g && vis(g)) { click(g); phase = 2; }
-        return;
-      }
-      if (phase === 2) {
-        var go = q("#auth-guest-go-btn"), nk = q("#auth-guest-nick");
-        if (go && vis(go)) {
-          if (nk) { nk.value = "TutBot"; nk.dispatchEvent(new Event("input", { bubbles: true })); }
-          click(go); phase = 3;
-        }
-        return;
-      }
-      if (phase === 3) {
-        var lob = q("#auth-stats-lobby");
-        if (lob && lob.classList.contains("visible")) {
-          SIGNIN_HOOK
-          if (typeof window.__openTutorialChooser !== "function") {
-            log.push({ fatal: "__openTutorialChooser missing" }); finish(); clearInterval(iv); return;
-          }
-          window.__openTutorialChooser(); phase = 4;
-        }
-        return;
-      }
-      if (phase === 4) { var o = q('#tut3-chooser .tut3-opt[data-key="${tourKey}"]'); if (o) { click(o); phase = 5; } return; }
-
-      var coach = q("#tut3-coach");
-      if (!coach || !coach.classList.contains("open")) { log.push({ finished: true }); finish(); clearInterval(iv); return; }
-      var countTxt = (q("#tut3-count") || {}).textContent || "";
-      var title = (q("#tut3-title") || {}).textContent || "";
-      var hole = q("#tut3-hole"), nextBtn = q("#tut3-next");
-      var choices = document.querySelectorAll("#tut3-text [data-choice]");
-      if (countTxt !== lastStep) { lastStep = countTxt; guard = 0; }
-      guard++;
-      if (guard < 8) return;                       // let the step settle
-      if (guard === 8) {
-        var hr = hole.getBoundingClientRect(), pop = q("#tut3-pop").getBoundingClientRect();
-        var over = !(pop.right < hr.left || pop.left > hr.right || pop.bottom < hr.top || pop.top > hr.bottom);
-        // Which way IS the target, measured, so the "Click above →" label can
-        // be checked against reality rather than against the source.
-        var side = "none";
-        if (!hole.classList.contains("nohole")) {
-          if (pop.top >= hr.bottom - 1) side = "above";
-          else if (pop.bottom <= hr.top + 1) side = "below";
-          else if (pop.left >= hr.right - 1) side = "left";
-          else if (pop.right <= hr.left + 1) side = "right";
-          else side = "overlap";
-        }
-        log.push({
-          step: countTxt, title: title,
-          hasTarget: !hole.classList.contains("nohole"),
-          targetW: Math.round(hr.width), targetH: Math.round(hr.height),
-          popCoversTarget: !hole.classList.contains("nohole") && over,
-          popOffscreen: pop.left < -1 || pop.right > window.innerWidth + 1
-                     || pop.top < -1 || pop.bottom > window.innerHeight + 1,
-          nextDisabled: !!nextBtn.disabled,
-          nextLabel: nextBtn.textContent,
-          targetSide: side,
-        });
-      }
-      if (choices.length) { log.push({ finished: true, terminal: countTxt }); finish(); clearInterval(iv); return; }
-      if (!nextBtn.disabled) { click(nextBtn); return; }
-      if (guard === 9 && q("#tut3-cta")) { click(q("#tut3-cta")); return; }
-      if (guard % 6 === 0 && guard <= 60) {
-        var hr2 = hole.getBoundingClientRect();
-        if (hr2.width > 2 && hr2.height > 2) {
-          var el = document.elementFromPoint(hr2.left + hr2.width / 2, hr2.top + hr2.height / 2);
-          while (el && typeof el.click !== "function") el = el.parentElement;
-          if (el && !coach.contains(el)) { click(el); return; }
-        }
-      }
-      if (guard > 62) {
-        log.push({ stuck: countTxt + ": " + title });
-        nextBtn.disabled = false; click(nextBtn);    // force on, so the rest is still audited
-      }
-    } catch (e) { log.push({ err: String(e && e.message) }); }
-  }, 60);
-})();
-</script>`;
-
-  // Serve the client directory: the app loads its scripts by absolute path.
-  // It has to be a SEPARATE process: execFileSync below blocks this one's event
-  // loop, so a server running in here would never answer a single request.
-  const PORT = 8931 + (process.pid % 500);
-  const SERVER_SRC = `
-    const fs=require("fs"),path=require("path"),http=require("http");
-    const ROOT=${JSON.stringify(CLIENT)};
-    const MIME={".html":"text/html",".js":"text/javascript",".css":"text/css",
-      ".json":"application/json",".png":"image/png",".jpg":"image/jpeg",
-      ".webp":"image/webp",".svg":"image/svg+xml",".ico":"image/x-icon"};
-    http.createServer((req,res)=>{
-      const rel=decodeURIComponent(req.url.split("?")[0]).replace(/^\\/+/,"");
-      const f=path.join(ROOT,rel);
-      if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);res.end();return;}
-      res.writeHead(200,{"Content-Type":MIME[path.extname(f)]||"application/octet-stream"});
-      fs.createReadStream(f).pipe(res);
-    }).listen(${PORT});
-  `;
-
-  // Two profiles. Guest is what the app hands a signed-out player. "Signed in"
-  // has to be faked, the real gates read a module-scoped _authUser no test can
-  // set, so the harness serves a copy of the app with exactly those three
-  // gates opened, and tells the tour it is signed in.
-  // The "signed in" profile used to need three gates patched open here. All
-  // three are gone from the app: a guest opens the gallery and every panel, so
-  // the two profiles now differ only in what __fishAuthUser reports, which is
-  // what the tour itself reads. The app is served unmodified.
-  function harnessApp() { return APP; }
-
-  const tmp = [];
-  function writeTmp(name, body) { const f = path.join(CLIENT, name); fs.writeFileSync(f, body); tmp.push(f); return name; }
-  writeTmp("_tut_app.js", harnessApp());
-
-  function drivePage(tourKey, signedIn) {
-    let page = HTML;
-    // Choose the device before any deferred script runs.
-    page = page.replace('<script defer src="/js/device-select.js',
-      '<script>try{sessionStorage.setItem("cc_device_type","computer");}catch(e){}</script>\n<script defer src="/js/device-select.js');
-    if (signedIn) page = page.replace(/\/js\/preview-app\.js\?[^"]*/, "/_tut_app.js");
-    return page + DRIVER(tourKey).replace("SIGNIN_HOOK",
-      signedIn ? 'window.__fishAuthUser = function () { return { uid: "harness" }; };' : "");
+  send(method, params, timeoutMs = 20000) {
+    const id = ++this.id;
+    return new Promise(resolve => {
+      const t = setTimeout(() => { this.waiting.delete(id); resolve(null); }, timeoutMs);
+      this.waiting.set(id, m => { clearTimeout(t); resolve(m); });
+      try { this.ws.send(JSON.stringify({ id, method, params: params || {} })); } catch (_) { clearTimeout(t); resolve(null); }
+    });
   }
-
-  function run(tourKey, signedIn, w, h) {
-    const name = `_tut_drive_${tourKey}_${signedIn ? "in" : "guest"}.html`;
-    writeTmp(name, drivePage(tourKey, signedIn));
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const dom = execFileSync(CHROME, ["--headless", "--disable-gpu", "--no-sandbox",
-        "--hide-scrollbars", `--window-size=${w},${h}`, "--virtual-time-budget=400000",
-        "--dump-dom", `http://localhost:${PORT}/${name}?game_window=1`],
-        // Chrome writes a wall of unrelated GCM/web-app noise to stderr.
-        { encoding: "utf8", maxBuffer: 64e6, stdio: ["ignore", "pipe", "ignore"] });
-      const m = /<div id="out">([\s\S]*?)<\/div>/.exec(dom);
-      const raw = m ? m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">") : "";
-      if (!raw || raw === "PENDING") continue;
-      let rows; try { rows = JSON.parse(raw); } catch (_) { continue; }
-      // A network-timing miss in the sign-in screen is not a tutorial failure.
-      if (rows.length === 1 && rows[0].fatal) continue;
-      return rows;
-    }
-    return null;
+  async eval(expr) {
+    const r = await this.send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true });
+    return r && r.result && r.result.result ? r.result.result.value : undefined;
   }
+  close() { try { this.ws.close(); } catch (_) {} }
+}
 
-  const server = spawn(process.execPath, ["-e", SERVER_SRC], { stdio: "ignore", detached: false });
-  // Give it a moment to bind before the first page load.
-  try { execFileSync(process.execPath, ["-e", "setTimeout(()=>{},700)"]); } catch (_) {}
+// The real page, with the API base pointed at nothing: a guest needs no server.
+const tmp = [];
+function writeTmp(name, body) { const f = path.join(CLIENT, name); fs.writeFileSync(f, body); tmp.push(f); return name; }
+writeTmp("_tutv_app.js", APP.replace(/window\.__FISH_API_BASE__\s*=\s*"[^"]*";/, `window.__FISH_API_BASE__ = "http://127.0.0.1:9";`));
+const PAGE = writeTmp("_tutv_page.html", HTML
+  .replace('<script defer src="/js/device-select.js', `<script>try{sessionStorage.setItem("cc_device_type","computer");}catch(e){}</script>\n<script defer src="/js/device-select.js`)
+  .replace(/\/js\/preview-app\.js\?[^"]*/, "/_tutv_app.js"));
+
+const SERVER_SRC = `
+  const fs=require("fs"),path=require("path"),http=require("http");
+  const ROOT=${JSON.stringify(CLIENT)};
+  const MIME={".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".png":"image/png",
+    ".jpg":"image/jpeg",".webp":"image/webp",".svg":"image/svg+xml",".m4a":"audio/mp4",".mp4":"video/mp4",".vtt":"text/vtt",".woff2":"font/woff2"};
+  http.createServer((req,res)=>{
+    const rel=decodeURIComponent(req.url.split("?")[0]).replace(/^\\/+/,"");
+    const f=path.join(ROOT,rel);
+    if(!f.startsWith(ROOT)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);res.end();return;}
+    const size=fs.statSync(f).size, type=MIME[path.extname(f)]||"application/octet-stream";
+    const m=/bytes=(\\d*)-(\\d*)/.exec(req.headers.range||"");
+    if(m){const s=m[1]?+m[1]:0,e=m[2]?Math.min(+m[2],size-1):size-1;
+      res.writeHead(206,{"Content-Type":type,"Accept-Ranges":"bytes","Content-Range":"bytes "+s+"-"+e+"/"+size,"Content-Length":e-s+1});
+      fs.createReadStream(f,{start:s,end:e}).pipe(res);return;}
+    res.writeHead(200,{"Content-Type":type,"Accept-Ranges":"bytes","Content-Length":size});
+    fs.createReadStream(f).pipe(res);
+  }).listen(${PORT});`;
+
+let seq = 0;
+async function drive(w, h, label) {
+  const port = DEBUG_BASE + (seq++);
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "tutv-"));
+  const chrome = spawn(CHROME, ["--headless=new", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check",
+    "--disable-extensions", "--autoplay-policy=no-user-gesture-required", "--mute-audio", `--user-data-dir=${profile}`,
+    `--window-size=${Math.max(w, 500)},${h}`, `--remote-debugging-port=${port}`,
+    `http://localhost:${PORT}/${PAGE}?game_window=1`], { stdio: "ignore" });
+  let cdp = null;
   try {
-    for (const [tourKey, tourName] of [["menu", "Main Menu Tour"], ["competitive", "Competitive 1v1"]]) {
-      for (const signedIn of [false, true]) {
-        const who = signedIn ? "signed in" : "as a guest";
-        console.log(`\n${tourName}, ${who} (1440x900)`);
-        const rows = run(tourKey, signedIn, 1440, 900);
-        if (!rows) { check(`${tourName} ${who}: the harness reached the tour`, false); continue; }
-        const steps = rows.filter(r => r.step);
-        const stuck = rows.filter(r => r.stuck).map(r => r.stuck);
-        const done  = rows.some(r => r.finished);
-
-        check(`${tourName} ${who}: runs to the end`, done);
-        check(`${tourName} ${who}: no step traps the player${stuck.length ? ": " + stuck.join(" | ") : ""}`,
-              stuck.length === 0);
-        check(`${tourName} ${who}: every step was reached (${steps.length} steps)`, steps.length >= 12);
-
-        // A step that spotlights nothing is only fine when it is meant to talk
-        // to the whole screen; a step that asks for a CLICK must have something
-        // to click, or Next stays disabled and the player is stranded.
-        const blind = steps.filter(s => s.nextDisabled && !s.hasTarget).map(s => s.title);
-        check(`${tourName} ${who}: nothing to click is never asked for${blind.length ? ": " + blind.join(", ") : ""}`,
-              blind.length === 0);
-
-        const covered = steps.filter(s => s.nextDisabled && s.popCoversTarget).map(s => s.title);
-        check(`${tourName} ${who}: the popup never covers the thing you must click${covered.length ? ": " + covered.join(", ") : ""}`,
-              covered.length === 0);
-
-        // "Click above →" over a target that is below the popup is a wrong
-        // instruction, and the player follows it.
-        const misPointed = steps.filter(s => {
-          const m = /^Click (above|below|left|right)/.exec(s.nextLabel || "");
-          return m && s.targetSide !== "overlap" && s.targetSide !== "none" && m[1] !== s.targetSide;
-        }).map(s => `${s.title}: says ${(/^Click (\w+)/.exec(s.nextLabel) || [])[1]}, target is ${s.targetSide}`);
-        check(`${tourName} ${who}: "Click <way>" always points at the target${misPointed.length ? ": " + misPointed.join(", ") : ""}`,
-              misPointed.length === 0);
-
-        const off = steps.filter(s => s.popOffscreen).map(s => s.title);
-        check(`${tourName} ${who}: the popup is always fully on screen${off.length ? ": " + off.join(", ") : ""}`,
-              off.length === 0);
-
-        // A spotlight thinner than a finger is not a spotlight.
-        const slivers = steps.filter(s => s.hasTarget && (s.targetW < 24 || s.targetH < 10)).map(s => `${s.title} ${s.targetW}x${s.targetH}`);
-        check(`${tourName} ${who}: no spotlight is a sliver${slivers.length ? ": " + slivers.join(", ") : ""}`,
-              slivers.length === 0);
-
-        if (tourKey === "menu") {
-          const titles = steps.map(s => s.title);
-          check(`${tourName} ${who}: the sample match is opened for the player`,
-                titles.includes("A Real Past Match"));
-          const sample = steps.find(s => s.title === "A Real Past Match");
-          check(`${tourName} ${who}: ...and you can move on without touching it`,
-                !!sample && sample.nextDisabled === false && sample.hasTarget === true);
-          // The gallery is now open to everyone, so BOTH profiles walk it.
-          // A tour that quietly skipped a third of itself for guests was the
-          // tour agreeing with a lockout that no longer exists.
-          check(`${tourName} ${who}: the gallery steps are shown`,
-                titles.includes("Your Avatar Gallery"));
-          if (signedIn) {
-            check(`${tourName} ${who}: the friend code is on screen for its step`,
-                  !!steps.find(s => s.title === "Your Friend Code" && s.hasTarget));
-          } else {
-            check(`${tourName} ${who}: the guest is told what a guest does not keep`,
-                  titles.includes("You are playing as a guest"));
-            // The one thing a guest genuinely has not got.
-            check(`${tourName} ${who}: ...and the friend-code step is skipped`,
-                  !titles.includes("Your Friend Code"));
-          }
-        }
-      }
+    const target = await waitFor(async () => (JSON.parse(await get(`http://127.0.0.1:${port}/json/list`))).find(t => t.type === "page" && t.webSocketDebuggerUrl), 20000);
+    check(`${label}: Chrome came up`, !!target);
+    if (!target) return;
+    cdp = await Cdp.open(target.webSocketDebuggerUrl);
+    await cdp.send("Runtime.enable");
+    for (let i = 0; i < 10; i++) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+      if (await cdp.eval(`innerWidth + "x" + innerHeight`) === `${w}x${h}`) break;
+      await sleep(300);
     }
+    // Into the lobby as a guest, the way a first-time player gets there.
+    const lobby = await waitFor(() => cdp.eval(`(function(){
+      function q(s){return document.querySelector(s);}
+      function vis(el){ if(!el) return false; var r=el.getBoundingClientRect(); return r.width>0 && getComputedStyle(el).display!=="none"; }
+      var spl=q("#cc-fs-splash"); if(spl && getComputedStyle(spl).display!=="none"){ var b=q("#ccfs-window"); if(b) b.click(); spl.style.display="none"; }
+      var dev=q("#cc-device-screen"); if(dev && getComputedStyle(dev).display!=="none"){ var d=q('[data-cc-device="computer"]'); if(d) d.click(); }
+      var lob=q("#auth-stats-lobby"); if(lob && lob.classList.contains("visible")) return true;
+      var go=q("#auth-guest-go-btn"), nk=q("#auth-guest-nick");
+      if(go && vis(go)){ if(nk){ nk.value="Tester"; nk.dispatchEvent(new Event("input",{bubbles:true})); } go.click(); return false; }
+      var g=q("#auth-guest-btn"); if(g && vis(g)) g.click();
+      else { window.__tb=(window.__tb||0)+1; if(window.__tb>40){ var ls=q("#auth-loading-screen"); if(ls) ls.classList.add("hidden"); var as=q("#auth-screen"); if(as) as.classList.remove("hidden"); } }
+      return false; })()`), 45000, 400);
+    check(`${label}: reached the lobby as a guest`, !!lobby);
+    if (!lobby) return;
 
-    // ── Every width, not just the one the laptop happens to be ─────────────
-    // A tour that passes at 1440 and strands a phone player is not fixed.
-    // NOT a phone. Headless Chrome clamps its window to a 500px minimum width,
-    // so --window-size=390,844 lays the page out at 500 and reports 500: this
-    // list once ended in a "phone (390x844)" row that was really a second
-    // narrow row, passing while nothing under 500px had ever been rendered.
-    // The sizes below are the ones --dump-dom can honestly produce. A REAL
-    // phone viewport needs CDP's Emulation.setDeviceMetricsOverride, which is
-    // where test_tutorials_ingame.js drives every tour at 390x844.
-    console.log("\nMain Menu Tour at every width --dump-dom can really produce (signed in)");
-    for (const [w, h, label] of [[1180, 900, "narrow laptop"], [1024, 900, "small laptop"],
-                                 [820, 1100, "tablet"], [500, 844, "smallest window Chrome will give"]]) {
-      const rows = run("menu", true, w, h);
-      if (!rows) { check(`${label} ${w}x${h}: the harness reached the tour`, false); continue; }
-      const steps = rows.filter(r => r.step);
-      const stuck = rows.filter(r => r.stuck).map(r => r.stuck);
-      check(`${label} (${w}x${h}): runs to the end with no step trapping the player${stuck.length ? ": " + stuck.join(" | ") : ""}`,
-            rows.some(r => r.finished) && stuck.length === 0);
-      check(`${label} (${w}x${h}): the popup stays on screen`,
-            steps.every(s => !s.popOffscreen));
-      check(`${label} (${w}x${h}): the popup never covers a required click`,
-            steps.every(s => !(s.nextDisabled && s.popCoversTarget)));
-      // The direction flips with the window size, this is the width the
-      // hard-coded "Click above →" got wrong.
-      check(`${label} (${w}x${h}): "Click <way>" still points at the target`,
-            steps.every(s => {
-              const m = /^Click (above|below|left|right)/.exec(s.nextLabel || "");
-              return !m || s.targetSide === "overlap" || s.targetSide === "none" || m[1] === s.targetSide;
-            }));
-    }
+    // Record every hush the chooser asks for.
+    await cdp.eval(`(function(){ var real = window.__ccHushTheme; window.__hushLog = []; window.__ccHushTheme = function(on){ window.__hushLog.push(!!on); if (real) real(on); }; })()`);
+    await cdp.eval(`document.getElementById("stats-tutorial-btn").click()`);
+    const open = await waitFor(() => cdp.eval(`!!document.querySelector("#tut3-chooser.open .tut3-vid")`), 8000);
+    check(`${label}: the Tutorial tile opens the video list`, !!open);
+    if (!open) return;
+    const list = JSON.parse(await cdp.eval(`JSON.stringify({
+      groups: [...document.querySelectorAll("#tut3-chooser .tut3-group-hd")].map(e => e.textContent),
+      vids: [...document.querySelectorAll("#tut3-chooser .tut3-vid")].map(e => e.getAttribute("data-key")),
+      text: document.querySelector("#tut3-chooser").innerText,
+      overflowX: document.querySelector("#tut3-chooser .tut3-card").scrollWidth > document.querySelector("#tut3-chooser .tut3-card").clientWidth + 1,
+      cardW: document.querySelector("#tut3-chooser .tut3-card").getBoundingClientRect().width,
+      thumbs: [...document.querySelectorAll("#tut3-chooser .tut3-thumb img")].length })`));
+    check(`${label}: eight videos, in three groups`, list.vids.length === 8 && list.groups.length === 3, JSON.stringify(list.groups));
+    check(`${label}: the main menu video stands alone at the top`, list.vids[0] === "menu" && /start here/i.test(list.groups[0] || ""), JSON.stringify(list.groups));
+    check(`${label}: the list is the one in the source, in order`, list.vids.join() === VIDEOS.map(v => v.key).join());
+    check(`${label}: every video shows its length`, VIDEOS.every(v => list.text.includes(v.len)));
+    check(`${label}: no Competitive tutorial on screen`, !/competitive/i.test(list.text));
+    check(`${label}: nothing to click through, and it says so`, /Nothing to click through/.test(list.text));
+    check(`${label}: the card fits the window`, !list.overflowX && list.cardW <= w);
+
+    // Play the first one.
+    await cdp.eval(`document.querySelector('#tut3-chooser .tut3-vid[data-key="${VIDEOS[0].key}"]').click()`);
+    const playing = await waitFor(() => cdp.eval(`(function(){ var v = document.getElementById("tut3-video"); return v && v.readyState >= 2 && v.currentTime > 0.3 && !v.paused; })()`), 15000);
+    check(`${label}: the video really plays (frames decoded, time moving)`, !!playing);
+    const info = JSON.parse(await cdp.eval(`JSON.stringify((function(){ var v = document.getElementById("tut3-video"); var r = v.getBoundingClientRect();
+      return { src: v.currentSrc, dur: v.duration, w: r.width, h: r.height, tracks: v.textTracks.length, mode: v.textTracks[0] && v.textTracks[0].mode,
+               title: document.querySelector(".tut3-player-hd h3").textContent, next: (document.getElementById("tut3-next") || {}).textContent || "" }; })())`));
+    check(`${label}: it is the file the list names`, info.src.endsWith(`/video/${VIDEOS[0].file}.mp4`), info.src);
+    check(`${label}: 16:9 and big enough to read`, Math.abs(info.w / info.h - 16 / 9) < 0.03 && info.w >= Math.min(w - 60, 600), `${info.w}x${info.h}`);
+    check(`${label}: captions are there, and off until switched on`, info.tracks === 1 && info.mode !== "showing");
+    check(`${label}: it offers the next video`, info.next.includes(VIDEOS[1].title));
+    check(`${label}: the lobby music is hushed while it plays`, (await cdp.eval(`window.__hushLog.includes(true)`)) === true);
+
+    // Run it to the end.
+    await cdp.eval(`(function(){ var v = document.getElementById("tut3-video"); v.currentTime = Math.max(0, v.duration - 1.2); v.play(); })()`);
+    const watched = await waitFor(() => cdp.eval(`(JSON.parse(localStorage.getItem("tut3_done_v1") || "{}"))[${JSON.stringify(VIDEOS[0].key)}] === true`), 10000);
+    check(`${label}: watching to the end ticks it off`, !!watched);
+    check(`${label}: and the Next button lights up`, !!(await waitFor(() => cdp.eval(`!!document.querySelector("#tut3-next.tut3-ready")`), 3000)));
+
+    // Next, then back to the list.
+    await cdp.eval(`document.getElementById("tut3-next").click()`);
+    const second = await waitFor(() => cdp.eval(`(function(){ var v = document.getElementById("tut3-video"); return v && v.currentSrc.endsWith("/video/${VIDEOS[1].file}.mp4"); })()`), 8000);
+    check(`${label}: Next plays the next video`, !!second);
+    await cdp.eval(`document.getElementById("tut3-all").click()`);
+    const back = JSON.parse(await cdp.eval(`JSON.stringify({ video: !!document.getElementById("tut3-video"), ticked: !!document.querySelector('#tut3-chooser .tut3-vid[data-key="${VIDEOS[0].key}"] .tut3-vid-done'), count: (document.querySelector(".tut3-reward") || {}).textContent || "" })`));
+    check(`${label}: All videos stops the video and goes back`, !back.video);
+    check(`${label}: the watched one is ticked in the list`, back.ticked);
+    check(`${label}: the Osprey count moved`, back.count.includes(`(1/${VIDEOS.length})`), back.count);
+    check(`${label}: leaving the player gives the music back`, (await cdp.eval(`window.__hushLog[window.__hushLog.length - 1]`)) === false);
+    await cdp.eval(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+    check(`${label}: Escape closes it`, (await cdp.eval(`!document.querySelector("#tut3-chooser.open")`)) === true);
   } finally {
-    try { server.kill(); } catch (_) {}
-    tmp.forEach(f => { try { fs.unlinkSync(f); } catch (_) {} });
+    if (cdp) cdp.close();
+    try { chrome.kill("SIGKILL"); } catch (_) {}
+    await new Promise(r => { chrome.once("exit", r); setTimeout(r, 4000); });
+    try { fs.rmSync(profile, { recursive: true, force: true }); } catch (_) {}
   }
 }
 
-console.log("\n" + "=".repeat(42));
-console.log(`RESULT: ${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+(async () => {
+  const stat = spawn(process.execPath, ["-e", SERVER_SRC], { stdio: "ignore" });
+  try {
+    await waitFor(async () => (await get(`http://127.0.0.1:${PORT}/${PAGE}`, 2000)).length > 0, 10000);
+    console.log("\na laptop (1280x800)");
+    await drive(1280, 800, "laptop");
+    console.log("\na phone (390x844)");
+    await drive(390, 844, "phone");
+  } finally {
+    try { stat.kill(); } catch (_) {}
+    for (const f of tmp) try { fs.unlinkSync(f); } catch (_) {}
+  }
+  done();
+})();

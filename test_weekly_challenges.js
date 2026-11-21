@@ -32,7 +32,6 @@ const CSS  = read("css/preview.css");
 // The plate's own look lives here, scoped to #auth-stats-lobby. Loading only
 // preview.css renders the OLD three-box strip, which is not what ships.
 const HOME = read("css/home-overview.css");
-const TUT  = read("js/tutorials.js");
 
 let pass = 0, fail = 0;
 function check(name, cond) {
@@ -257,11 +256,6 @@ check("the panel measures the room in dvh, not vh",
       /--igcp-room:\s*max\(120px,\s*calc\(100dvh\s*-\s*var\(--pv-bottom-ui/.test(CSS));
 check("the 120px top reserve that squeezed the cards to a sliver is gone",
       !/#igcp-cards\s*\{\s*max-height:\s*calc\(100vh - var\(--pv-bottom-ui, 302px\) - 190px\)/.test(CSS));
-
-console.log("\nthe tutorial teaches the new gesture");
-check("the tour opens the strip by its header", TUT.includes('target: "#ph-cs-header-btn"'));
-check("the tour waits for it to actually open", TUT.includes("gtChallengesOpen"));
-check("no Daily Challenges step is left", !/badge: "Daily Challenges"/.test(TUT));
 
 // ── The porthole: one critter per challenge, water for progress ───────
 console.log("\nthe porthole");

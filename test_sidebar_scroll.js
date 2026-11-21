@@ -59,15 +59,6 @@ if (SB_START < 0 || SB_END < 0) {
 }
 const SIDEBAR = HTML.slice(SB_START, SB_END + '</div><!-- /.ph-sidebar -->'.length);
 
-// The tutorial spotlights these two, in this order (js/tutorials.js).
-const TUT = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/tutorials.js"), "utf8");
-for (const sel of ['".ph-sidebar-streak"', '"#ph-ss-details-btn"']) {
-  if (!TUT.includes(sel)) {
-    console.error(`FAIL: tutorials.js no longer targets ${sel}: update this test.`);
-    process.exit(1);
-  }
-}
-
 const page = (rescue) => `<!doctype html><html><head><meta charset="utf-8">
 <title>sidebar scroll</title>
 <style>${CSS}</style>
@@ -128,12 +119,12 @@ ${SIDEBAR}
       say("HIT " + name + "." + tag + "=" + (backedByCard(x, y) ? "card" : "BARE"));
     }
   }
-  // ── The tutorial pass ────────────────────────────────────────────────
-  // The Main Menu tour walks to ".ph-sidebar-streak" and then to
-  // "#ph-ss-details-btn", and reaches each one exactly the way tutorials.js
-  // does: scrollIntoView({block:"center"}). Whatever that lands on is what the
-  // player sees through the spotlight hole, so it must be on screen inside the
-  // sidebar AND painted on the white card, all four corners of it.
+  // ── Scrolled to, the streak and its button are whole ─────────────────
+  // ".ph-sidebar-streak" and "#ph-ss-details-btn", brought into view the way
+  // anything that links to them does: scrollIntoView({block:"center"}). (The
+  // Main Menu tour used to; the tutorials are videos now.) Whatever that
+  // lands on must be on screen inside the sidebar AND painted on the white
+  // card, all four corners of it.
   for (const [name, el] of [["TUT-STRK", strk], ["TUT-BTN", btn]]) {
     el.scrollIntoView({ block: "center", behavior: "instant" });
     const r = el.getBoundingClientRect();

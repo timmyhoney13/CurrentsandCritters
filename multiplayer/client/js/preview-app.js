@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.7.2";
-  const APP_BUILD   = "2026-11-15.4";
+  const APP_BUILD   = "2026-11-21.1";
 
   // ── Progress that is filed on the DEVICE, not on an account ─────────────
   // The challenge slots, the win streaks, the opponents you have met, the
@@ -1740,10 +1740,21 @@
       return Math.max(0, Math.min(100, v));
     } catch { return 100; }
   }
+  // Hushed while a tutorial video is playing (js/tutorials.js). The videos
+  // have their own narrator and their own copy of the theme under her, so the
+  // table's song on top made the voice hard to follow. Only the gain moves:
+  // the room's music clock keeps running, so when the video stops the song
+  // comes back on the same beat as everyone else's. The player's own volume
+  // setting is never written to.
+  let _themeHushed = false;
+  function themeTargetGain() {
+    return _themeHushed ? 0 : MUSIC_MAX_GAIN * (musicVolumePct() / 100);
+  }
+  window.__ccHushTheme = (on) => { _themeHushed = !!on; applyThemeVolume(); };
   function applyThemeVolume() {
     if (!_themeGain) return;
     try {
-      const target = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
+      const target = themeTargetGain();
       // Ramp instead of hard-setting so rapid slider drags don't "zipper"/click.
       // A tiny time-constant (~15ms) settles fast enough to feel instant.
       if (_themeAudioCtx && typeof _themeGain.gain.setTargetAtTime === "function") {
@@ -1871,7 +1882,7 @@
     if (!_themeAudioCtx || !_themeBuffer) return;
     const dur = Number(_themeBuffer.duration) || 0;
     const at = dur > 0 ? Math.max(0, Math.min(dur - 0.001, Number(offset) || 0)) : 0;
-    const vol = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
+    const vol = themeTargetGain();
     const src = _themeAudioCtx.createBufferSource();
     src.buffer = _themeBuffer;
     src.loop = true;
@@ -22644,7 +22655,7 @@
       unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
     { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
       facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
-      unlock:{ type:"event", event:"tutorial_complete", label:"Complete all 5 tutorials." } },
+      unlock:{ type:"event", event:"tutorial_complete", label:"Watch all 8 tutorial videos." } },
     { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
       facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
       unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Corals on Coral Reefs in one game." } },
@@ -36574,7 +36585,7 @@
         +     'attached to them. When the END GAME card appears, everyone takes one last turn and the biggest '
         +     'ecosystem wins. Here is a whole turn, start to finish.</p>'
         +   '<div class="htp-hero-btns">'
-        +     '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        +     '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Watch the tutorials</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="rules">Full Rulebook</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="strats">Strategies</button>'
         +   '</div>'
@@ -36714,9 +36725,9 @@
         + '</div>'
 
         + '<div class="htp-cta">'
-        +   '<div class="htp-cta-txt"><b>That is the whole game.</b> The tutorial deals you a real hand and walks you '
-        +     'through it, which is the fastest way to make it stick.</div>'
-        +   '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        +   '<div class="htp-cta-txt"><b>That is the whole game.</b> The tutorials are short videos, about a minute '
+        +     'each, of the rules and of the real game being played. Nothing to click through.</div>'
+        +   '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Watch the tutorials</button>'
         + '</div>';
     }
 

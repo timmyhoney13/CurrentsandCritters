@@ -38,7 +38,6 @@ if (!CHROME) {
 
 const CSS  = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/preview.css"), "utf8");
 const HTML = fs.readFileSync(path.join(ROOT, "multiplayer/client/preview.html"), "utf8");
-const TUT  = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/tutorials.js"), "utf8");
 const APP  = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/preview-app.js"), "utf8");
 
 let pass = 0, fail = 0;
@@ -56,12 +55,6 @@ check("the sidebar is in preview.html", sbAt >= 0 && endAt > sbAt);
 check("the old edge strip is gone", !/ph-sidebar-edge/.test(HTML) && !/ph-sidebar-edge/.test(CSS));
 check("the pin is inside the sidebar",
       sbAt >= 0 && HTML.slice(sbAt, endAt).includes('id="ph-sidebar-pin"'));
-check("the tutorial holds the menu open while a step points into it",
-      /function coachHoldSidebar\(el\)/.test(TUT) && /classList\.toggle\("ph-sidebar-held"/.test(TUT));
-check("...and lets go when the tour ends",
-      /function endCoach\(\) \{\s*coachHoldSidebar\(null\);/.test(TUT));
-check("...and re-aims once the rail has finished sliding the page",
-      /e\.target\.id === "ph-sidebar" && e\.propertyName === "width"\) positionCoach\(\)/.test(TUT));
 check("the rail is for a computer with a mouse only",
       /@media \(min-width: 1100px\) and \(hover: hover\) and \(pointer: fine\) \{\s*body\.cc-device-computer #auth-stats-lobby \{\s*--ph-rail-w: 94px;/.test(CSS));
 check("a tab steps out only under a real mouse (not a sticky touch :hover)",
