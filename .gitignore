@@ -272,6 +272,8 @@
 !plush/catalog.json
 !plush/preorder.js
 !plush/preorder.css
+# The whale shark and loggerhead icons on the pre-order page's four steps.
+!plush/step-*.png
 # The browser half of the vote, and the only thing that can see a vote being
 # erased: it serves the real index.html over http (a file:// page has no usable
 # localStorage, so a queue test there would pass while testing nothing), votes
